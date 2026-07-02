@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.pointbank.auth.verification.mapper.PhoneVerificationMapper">
+
+    <resultMap id="phoneVerificationResultMap" type="com.pointbank.auth.verification.domain.PhoneVerification">
+        <id property="id" column="id"/>
+        <result property="phoneNumber" column="phone_number"/>
+        <result property="verificationCode" column="verification_code"/>
+        <result property="verified" column="verified"/>
+        <result property="expiresAt" column="expires_at"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="verifiedAt" column="verified_at"/>
+    </resultMap>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO phone_verifications (
+            phone_number, verification_code, verified, expires_at
+        ) VALUES (
+            #{phoneNumber}, #{verificationCode}, #{verified}, #{expiresAt}
+        )
+    </insert>
+
+    <select id="findLatestByPhoneNumber" resultMap="phoneVerificationResultMap">
+        SELECT id, phone_number, verification_code, verified, expires_at, created_at, verified_at
+        FROM phone_verifications
+        WHERE phone_number = #{phoneNumber}
+        ORDER BY created_at DESC, id DESC
+        LIMIT 1
+    </select>
+
+    <update id="markVerified">
+        UPDATE phone_verifications
+        SET verified = TRUE,
+            verified_at = #{verifiedAt}
+        WHERE id = #{id}
+    </update>
+</mapper>

@@ -25,7 +25,7 @@ pointbank-server
 
 ```bash
 cd infra
-docker compose up -d
+docker compose --env-file ../.env up -d
 ```
 
 2. IntelliJ에서 각 서비스 실행

@@ -6,14 +6,23 @@ spring:
     name: pointbank-auth-service
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
-    url: jdbc:mysql://localhost:3306/auth_db?serverTimezone=Asia/Seoul&characterEncoding=UTF-8
-    username: pointbank
-    password: pointbank
+    url: ${AUTH_DB_URL:jdbc:mysql://localhost:3306/auth_db?serverTimezone=Asia/Seoul&characterEncoding=UTF-8}
+    username: ${DB_USERNAME:pointbank}
+    password: ${DB_PASSWORD:pointbank}
 
 mybatis:
-  mapper-locations: classpath:mapper/**/*.xml
+  mapper-locations: classpath:/mapper/**/*.xml
+  type-aliases-package: com.pointbank.auth
   configuration:
     map-underscore-to-camel-case: true
+
+jwt:
+  secret: ${JWT_SECRET:pointbank-local-development-jwt-secret-key-change-before-production-2026}
+  access-token-expiration-minutes: 30
+  refresh-token-expiration-days: 14
+
+refresh-token:
+  hash-secret: ${REFRESH_TOKEN_HASH_SECRET:pointbank-local-development-refresh-token-hash-secret-change-before-production-2026}
 
 management:
   endpoints:

@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.pointbank.auth.device.mapper.MemberDeviceMapper">
+
+    <resultMap id="memberDeviceResultMap" type="com.pointbank.auth.device.domain.MemberDevice">
+        <id property="id" column="id"/>
+        <result property="memberId" column="member_id"/>
+        <result property="deviceId" column="device_id"/>
+        <result property="simplePasswordHash" column="simple_password_hash"/>
+        <result property="failedCount" column="failed_count"/>
+        <result property="lockedUntil" column="locked_until"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+
+    <sql id="memberDeviceColumns">
+        id, member_id, device_id, simple_password_hash, failed_count,
+        locked_until, created_at, updated_at
+    </sql>
+
+    <select id="findByDeviceId" resultMap="memberDeviceResultMap">
+        SELECT <include refid="memberDeviceColumns"/>
+        FROM member_devices
+        WHERE device_id = #{deviceId}
+    </select>
+
+    <select id="findByMemberIdAndDeviceId" resultMap="memberDeviceResultMap">
+        SELECT <include refid="memberDeviceColumns"/>
+        FROM member_devices
+        WHERE member_id = #{memberId}
+          AND device_id = #{deviceId}
+    </select>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO member_devices (member_id, device_id)
+        VALUES (#{memberId}, #{deviceId})
+    </insert>
+
+    <update id="updateSimplePassword">
+        UPDATE member_devices
+        SET simple_password_hash = #{simplePasswordHash},
+            failed_count = 0,
+            locked_until = NULL
+        WHERE member_id = #{memberId}
+          AND device_id = #{deviceId}
+    </update>
+
+    <update id="incrementFailedCount">
+        UPDATE member_devices
+        SET failed_count = failed_count + 1
+        WHERE id = #{id}
+    </update>
+
+    <update id="resetFailedCount">
+        UPDATE member_devices
+        SET failed_count = 0,
+            locked_until = NULL
+        WHERE id = #{id}
+    </update>
+
+    <update id="lockUntil">
+        UPDATE member_devices
+        SET locked_until = #{lockedUntil}
+        WHERE id = #{id}
+    </update>
+</mapper>
