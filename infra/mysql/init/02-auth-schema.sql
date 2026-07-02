@@ -1,0 +1,37 @@
+USE auth_db;
+
+CREATE TABLE IF NOT EXISTS members (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    name VARCHAR(50) NOT NULL,
+    phone_number VARCHAR(30) NOT NULL UNIQUE,
+    password_hash VARCHAR(255) NOT NULL,
+    role VARCHAR(20) NOT NULL DEFAULT 'USER',
+    status VARCHAR(30) NOT NULL DEFAULT 'ACTIVE',
+    phone_verified BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+    updated_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6)
+);
+
+CREATE TABLE IF NOT EXISTS phone_verifications (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    phone_number VARCHAR(30) NOT NULL,
+    verification_code VARCHAR(10) NOT NULL,
+    verified BOOLEAN NOT NULL DEFAULT FALSE,
+    expires_at DATETIME(6) NOT NULL,
+    created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6)
+);
+
+CREATE TABLE IF NOT EXISTS member_devices (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    member_id BIGINT NOT NULL,
+    device_id VARCHAR(100) NOT NULL UNIQUE,
+    device_name VARCHAR(100) NULL,
+    simple_password_hash VARCHAR(255) NULL,
+    simple_password_fail_count INT NOT NULL DEFAULT 0,
+    simple_password_locked_until DATETIME(6) NULL,
+    refresh_token_hash VARCHAR(255) NULL,
+    last_login_at DATETIME(6) NULL,
+    created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+    updated_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+    CONSTRAINT fk_member_devices_member_id FOREIGN KEY (member_id) REFERENCES members(id)
+);
