@@ -7,6 +7,7 @@ import com.pointbank.auth.member.domain.MemberStatus;
 import com.pointbank.auth.member.mapper.MemberMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -18,8 +19,8 @@ public class CustomUserDetailsService implements UserDetailsService {
     @Override
     public CustomUserDetails loadUserByUsername(String username) {
         Member member = memberMapper.findByPhoneNumber(username)
-                .orElseThrow(() -> new BusinessException(ErrorCode.MEMBER_NOT_FOUND));
-        return toActiveUserDetails(member);
+                .orElseThrow(() -> new UsernameNotFoundException("Member not found"));
+        return CustomUserDetails.from(member);
     }
 
     public CustomUserDetails loadByMemberId(Long memberId) {
