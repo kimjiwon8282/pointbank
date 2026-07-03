@@ -16,3 +16,4 @@ rootProject.name = 'pointbank-server'
 
 include 'services:pointbank-auth-service'
 include 'services:pointbank-banking-service'
+include 'services:pointbank-gateway-service'
