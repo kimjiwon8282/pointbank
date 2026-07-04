@@ -390,6 +390,72 @@ class AuthIntegrationTest {
         assertThat(count("SELECT COUNT(*) FROM refresh_tokens WHERE status = 'ACTIVE'")).isEqualTo(1);
     }
 
+    @Test
+    void 내부_인증_검증은_유효한_Access_Token과_최신_회원_정보를_반환한다() throws Exception {
+        String phoneNumber = uniquePhoneNumber();
+        signup(phoneNumber);
+        Tokens tokens = login(phoneNumber, DEVICE_ID);
+        Number memberId = (Number) memberByPhone(phoneNumber).get("id");
+
+        ResponseEntity<String> response = validate(tokens.accessToken());
+
+        assertSuccess(response);
+        JsonNode data = json(response).path("data");
+        assertThat(data.path("memberId").asLong()).isEqualTo(memberId.longValue());
+        assertThat(data.path("role").asText()).isEqualTo("USER");
+        assertThat(data.path("status").asText()).isEqualTo("ACTIVE");
+    }
+
+    @Test
+    void 내부_인증_검증에_Refresh_Token을_보내면_실패한다() throws Exception {
+        String phoneNumber = uniquePhoneNumber();
+        signup(phoneNumber);
+        Tokens tokens = login(phoneNumber, DEVICE_ID);
+
+        ResponseEntity<String> response = validate(tokens.refreshToken());
+
+        assertErrorCode(response, "INVALID_TOKEN");
+    }
+
+    @Test
+    void 내부_인증_검증에_잘못된_토큰을_보내면_실패한다() throws Exception {
+        ResponseEntity<String> response = validate("not-a-jwt");
+
+        assertErrorCode(response, "INVALID_TOKEN");
+    }
+
+    @Test
+    void 내부_인증_검증에서_토큰의_회원이_존재하지_않으면_실패한다() throws Exception {
+        String phoneNumber = uniquePhoneNumber();
+        signup(phoneNumber);
+        Tokens tokens = login(phoneNumber, DEVICE_ID);
+        jdbcTemplate.update("DELETE FROM refresh_tokens");
+        jdbcTemplate.update("DELETE FROM members WHERE phone_number = ?", phoneNumber);
+
+        ResponseEntity<String> response = validate(tokens.accessToken());
+
+        assertErrorCode(response, "MEMBER_NOT_FOUND");
+    }
+
+    @Test
+    void 내부_인증_검증에서_회원이_ACTIVE가_아니면_실패한다() throws Exception {
+        String phoneNumber = uniquePhoneNumber();
+        signup(phoneNumber);
+        Tokens tokens = login(phoneNumber, DEVICE_ID);
+        jdbcTemplate.update("UPDATE members SET status = 'SUSPENDED' WHERE phone_number = ?", phoneNumber);
+
+        ResponseEntity<String> response = validate(tokens.accessToken());
+
+        assertErrorCode(response, "MEMBER_NOT_ACTIVE");
+    }
+
+    @Test
+    void 내부_인증_검증에_Access_Token이_누락되면_실패한다() throws Exception {
+        ResponseEntity<String> response = post("/internal/auth/validate", Map.of(), new HttpHeaders());
+
+        assertErrorCode(response, "INVALID_INPUT_VALUE");
+    }
+
     private JsonNode signup(String phoneNumber) throws Exception {
         assertSuccess(post("/api/auth/phone-verifications", Map.of("phoneNumber", phoneNumber), new HttpHeaders()));
         assertSuccess(post("/api/auth/phone-verifications/confirm",
@@ -427,6 +493,10 @@ class AuthIntegrationTest {
 
     private ResponseEntity<String> refresh(String refreshToken) {
         return post("/api/auth/token/refresh", Map.of("refreshToken", refreshToken), new HttpHeaders());
+    }
+
+    private ResponseEntity<String> validate(String accessToken) {
+        return post("/internal/auth/validate", Map.of("accessToken", accessToken), new HttpHeaders());
     }
 
     private ResponseEntity<String> post(String path, Object body, HttpHeaders headers) {

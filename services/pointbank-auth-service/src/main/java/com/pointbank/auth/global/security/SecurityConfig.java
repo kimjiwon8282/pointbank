@@ -39,7 +39,8 @@ public class SecurityConfig {
                                 "/api/auth/signup",
                                 "/api/auth/login",
                                 "/api/auth/simple-login",
-                                "/api/auth/token/refresh"
+                                "/api/auth/token/refresh",
+                                "/internal/auth/validate"
                         ).permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/auth/me").authenticated()
                         .requestMatchers(HttpMethod.POST,
