@@ -1,6 +1,4 @@
-USE banking_db;
-
-CREATE TABLE IF NOT EXISTS accounts (
+CREATE TABLE accounts (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     member_id BIGINT NOT NULL,
     account_number VARCHAR(30) NOT NULL,
@@ -15,7 +13,7 @@ CREATE TABLE IF NOT EXISTS accounts (
     CONSTRAINT chk_accounts_balance_non_negative CHECK (balance >= 0)
 );
 
-CREATE TABLE IF NOT EXISTS account_transactions (
+CREATE TABLE account_transactions (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     account_id BIGINT NOT NULL,
     member_id BIGINT NOT NULL,

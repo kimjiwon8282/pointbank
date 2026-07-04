@@ -4,7 +4,11 @@ import org.springframework.http.HttpStatus;
 
 public enum ErrorCode {
 
+    BAD_REQUEST(HttpStatus.BAD_REQUEST, "BAD_REQUEST", "요청 값이 올바르지 않습니다."),
     UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "UNAUTHORIZED", "인증이 필요합니다."),
+    ACCOUNT_NOT_FOUND(HttpStatus.NOT_FOUND, "ACCOUNT_NOT_FOUND", "계좌를 찾을 수 없습니다."),
+    ACCOUNT_NOT_ACTIVE(HttpStatus.CONFLICT, "ACCOUNT_NOT_ACTIVE", "사용할 수 없는 계좌 상태입니다."),
+    ACCOUNT_ALREADY_EXISTS(HttpStatus.CONFLICT, "ACCOUNT_ALREADY_EXISTS", "이미 계좌가 존재합니다."),
     INTERNAL_SERVER_ERROR(
             HttpStatus.INTERNAL_SERVER_ERROR,
             "INTERNAL_SERVER_ERROR",

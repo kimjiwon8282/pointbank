@@ -9,14 +9,20 @@ import org.springframework.stereotype.Component;
 public class CurrentMemberHeaderResolver {
 
     public BankingMeResponse resolve(String memberIdHeader, String roleHeader) {
-        if (memberIdHeader == null || memberIdHeader.isBlank()
-                || roleHeader == null || roleHeader.isBlank()) {
+        if (roleHeader == null || roleHeader.isBlank()) {
             throw new CustomException(ErrorCode.UNAUTHORIZED);
         }
 
+        Long memberId = resolveMemberId(memberIdHeader);
+        return new BankingMeResponse(memberId, roleHeader.trim());
+    }
+
+    public Long resolveMemberId(String memberIdHeader) {
+        if (memberIdHeader == null || memberIdHeader.isBlank()) {
+            throw new CustomException(ErrorCode.UNAUTHORIZED);
+        }
         try {
-            Long memberId = Long.valueOf(memberIdHeader.trim());
-            return new BankingMeResponse(memberId, roleHeader.trim());
+            return Long.valueOf(memberIdHeader.trim());
         } catch (NumberFormatException exception) {
             throw new CustomException(ErrorCode.UNAUTHORIZED);
         }
