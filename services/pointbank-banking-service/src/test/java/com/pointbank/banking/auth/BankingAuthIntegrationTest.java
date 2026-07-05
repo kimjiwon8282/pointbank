@@ -529,6 +529,27 @@ class BankingAuthIntegrationTest {
         assertTransferFailureState(100000L, 0L);
     }
 
+    @Test
+    void transactionHistoryReturnsCurrentAccountsTransferWithCounterparty() throws Exception {
+        createTransferAccount(1L, 100000L, "1234");
+        String toAccountNumber = createTransferAccount(2L, 0L, "5678");
+        performTransfer(1L, toAccountNumber, 10000L, "1234").andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/banking/transactions")
+                        .header(MEMBER_ID_HEADER, "1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("거래내역 조회에 성공했습니다."))
+                .andExpect(jsonPath("$.data.items.length()").value(1))
+                .andExpect(jsonPath("$.data.items[0].transactionType").value("TRANSFER_OUT"))
+                .andExpect(jsonPath("$.data.items[0].direction").value("OUT"))
+                .andExpect(jsonPath("$.data.items[0].signedAmount").value(-10000))
+                .andExpect(jsonPath("$.data.items[0].counterpartyAccountNumber").value(toAccountNumber))
+                .andExpect(jsonPath("$.data.items[0].transferNo").isNotEmpty())
+                .andExpect(jsonPath("$.data.hasNext").value(false))
+                .andExpect(jsonPath("$.data.nextCursorCreatedAt").value(org.hamcrest.Matchers.nullValue()))
+                .andExpect(jsonPath("$.data.nextCursorId").value(org.hamcrest.Matchers.nullValue()));
+    }
+
     private org.springframework.test.web.servlet.ResultActions performTransfer(
             Long memberId, String toAccountNumber, Long amount, String password) throws Exception {
         return mockMvc.perform(post("/api/banking/transfers")
