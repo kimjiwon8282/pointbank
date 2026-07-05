@@ -39,6 +39,29 @@
         FOR UPDATE
     </select>
 
+    <select id="findByAccountNumber" resultMap="accountResultMap">
+        SELECT <include refid="accountColumns"/>
+        FROM accounts
+        WHERE account_number = #{accountNumber}
+    </select>
+
+    <select id="findById" resultMap="accountResultMap">
+        SELECT <include refid="accountColumns"/>
+        FROM accounts
+        WHERE id = #{accountId}
+    </select>
+
+    <select id="findAllByIdsForUpdate" resultMap="accountResultMap">
+        SELECT <include refid="accountColumns"/>
+        FROM accounts
+        WHERE id IN
+        <foreach collection="accountIds" item="accountId" open="(" separator="," close=")">
+            #{accountId}
+        </foreach>
+        ORDER BY id ASC
+        FOR UPDATE
+    </select>
+
     <insert id="insert" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO accounts (
             member_id, account_number, account_password_hash, balance, status

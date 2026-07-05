@@ -3,7 +3,15 @@ package com.pointbank.banking.auth;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.pointbank.banking.account.dto.AccountDepositRequest;
+import com.pointbank.banking.account.domain.Account;
+import com.pointbank.banking.account.mapper.AccountMapper;
 import com.pointbank.banking.account.service.AccountService;
+import com.pointbank.banking.transaction.domain.AccountTransaction;
+import com.pointbank.banking.transaction.domain.AccountTransactionType;
+import com.pointbank.banking.transaction.mapper.AccountTransactionMapper;
+import com.pointbank.banking.transfer.domain.Transfer;
+import com.pointbank.banking.transfer.domain.TransferStatus;
+import com.pointbank.banking.transfer.mapper.TransferMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -11,6 +19,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.http.MediaType;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
@@ -62,10 +71,19 @@ class BankingAuthIntegrationTest {
     ObjectMapper objectMapper;
     @Autowired
     AccountService accountService;
+    @Autowired
+    AccountMapper accountMapper;
+    @Autowired
+    AccountTransactionMapper accountTransactionMapper;
+    @Autowired
+    TransferMapper transferMapper;
+    @Autowired
+    PasswordEncoder accountPasswordEncoder;
 
     @BeforeEach
     void cleanDatabase() {
         jdbcTemplate.update("DELETE FROM account_transactions");
+        jdbcTemplate.update("DELETE FROM transfers");
         jdbcTemplate.update("DELETE FROM accounts");
     }
 
@@ -227,6 +245,7 @@ class BankingAuthIntegrationTest {
         assertThat(transaction.get("transaction_type")).isEqualTo("DEPOSIT");
         assertThat(((Number) transaction.get("amount")).longValue()).isEqualTo(100000L);
         assertThat(((Number) transaction.get("balance_after")).longValue()).isEqualTo(100000L);
+        assertThat(transaction.get("transfer_id")).isNull();
         assertThat(transaction.get("description")).isEqualTo("개발용 포인트 충전");
     }
 
@@ -346,6 +365,198 @@ class BankingAuthIntegrationTest {
                 "SELECT MAX(balance_after) FROM account_transactions",
                 Long.class
         )).isEqualTo(20000L);
+    }
+
+    @Test
+    void transferMapperStoresGeneratedIdAndFindsTransferByIdAndTransferNo() {
+        Transfer transfer = Transfer.requested("TR-20260705-000001", 10L, 20L, 1L, 2L, 5000L);
+
+        assertThat(transferMapper.insert(transfer)).isEqualTo(1);
+        assertThat(transfer.getId()).isNotNull();
+
+        Transfer byId = transferMapper.findById(transfer.getId()).orElseThrow();
+        Transfer byTransferNo = transferMapper.findByTransferNo(transfer.getTransferNo()).orElseThrow();
+        assertThat(byId.getTransferNo()).isEqualTo("TR-20260705-000001");
+        assertThat(byId.getStatus()).isEqualTo(TransferStatus.REQUESTED);
+        assertThat(byId.getAmount()).isEqualTo(5000L);
+        assertThat(byId.getCreatedAt()).isNotNull();
+        assertThat(byTransferNo.getId()).isEqualTo(transfer.getId());
+    }
+
+    @Test
+    void accountMapperFindsByAccountNumberAndLocksAccountsInAscendingIdOrder() {
+        createAccount(2L);
+        createAccount(1L);
+        Account memberTwoAccount = accountMapper.findByMemberId(2L).orElseThrow();
+        Account memberOneAccount = accountMapper.findByMemberId(1L).orElseThrow();
+
+        assertThat(accountMapper.findByAccountNumber(memberTwoAccount.getAccountNumber()))
+                .get().extracting(Account::getId).isEqualTo(memberTwoAccount.getId());
+        assertThat(accountMapper.findById(memberOneAccount.getId()))
+                .get().extracting(Account::getMemberId).isEqualTo(1L);
+
+        List<Account> lockedAccounts = accountMapper.findAllByIdsForUpdate(
+                List.of(memberOneAccount.getId(), memberTwoAccount.getId()));
+        assertThat(lockedAccounts).extracting(Account::getId).isSorted();
+    }
+
+    @Test
+    void accountTransactionMapperStoresTransferTypesAndTransferId() {
+        createAccount(1L);
+        Long accountId = accountMapper.findByMemberId(1L).orElseThrow().getId();
+        Transfer transfer = Transfer.requested("TR-20260705-000002", accountId, 20L, 1L, 2L, 1000L);
+        transferMapper.insert(transfer);
+
+        AccountTransaction transferOut = new AccountTransaction(
+                accountId, 1L, transfer.getId(), AccountTransactionType.TRANSFER_OUT,
+                1000L, 0L, "transfer out");
+        AccountTransaction transferIn = new AccountTransaction(
+                accountId, 1L, transfer.getId(), AccountTransactionType.TRANSFER_IN,
+                1000L, 1000L, "transfer in");
+
+        assertThat(accountTransactionMapper.insert(transferOut)).isEqualTo(1);
+        assertThat(accountTransactionMapper.insert(transferIn)).isEqualTo(1);
+        assertThat(jdbcTemplate.queryForList(
+                "SELECT transaction_type FROM account_transactions ORDER BY id", String.class))
+                .containsExactly("TRANSFER_OUT", "TRANSFER_IN");
+        assertThat(jdbcTemplate.queryForList(
+                "SELECT transfer_id FROM account_transactions ORDER BY id", Long.class))
+                .containsExactly(transfer.getId(), transfer.getId());
+    }
+
+    @Test
+    void transferCompletesAndStoresBalancesTransferAndTwoTransactions() throws Exception {
+        String fromAccountNumber = createTransferAccount(1L, 100000L, "1234");
+        String toAccountNumber = createTransferAccount(2L, 0L, "5678");
+
+        mockMvc.perform(post("/api/banking/transfers")
+                        .header(MEMBER_ID_HEADER, "1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(transferRequest(toAccountNumber, 10000L, "1234")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.message").value("송금이 완료되었습니다."))
+                .andExpect(jsonPath("$.data.transferNo").value(org.hamcrest.Matchers.matchesPattern("^TRF[0-9A-F]{32}$")))
+                .andExpect(jsonPath("$.data.fromAccountNumber").value(fromAccountNumber))
+                .andExpect(jsonPath("$.data.toAccountNumber").value(toAccountNumber))
+                .andExpect(jsonPath("$.data.amount").value(10000))
+                .andExpect(jsonPath("$.data.fromBalanceAfter").value(90000))
+                .andExpect(jsonPath("$.data.status").value("COMPLETED"))
+                .andExpect(jsonPath("$.data.completedAt").isNotEmpty());
+
+        assertThat(accountBalance(1L)).isEqualTo(90000L);
+        assertThat(accountBalance(2L)).isEqualTo(10000L);
+        Map<String, Object> transfer = jdbcTemplate.queryForMap("SELECT * FROM transfers");
+        assertThat(transfer.get("status")).isEqualTo("COMPLETED");
+        assertThat(((Number) transfer.get("amount")).longValue()).isEqualTo(10000L);
+        assertThat(transfer.get("completed_at")).isNotNull();
+        List<Map<String, Object>> transactions = jdbcTemplate.queryForList(
+                "SELECT * FROM account_transactions ORDER BY id");
+        assertThat(transactions).hasSize(2);
+        assertThat(transactions).extracting(row -> row.get("transaction_type"))
+                .containsExactly("TRANSFER_OUT", "TRANSFER_IN");
+        assertThat(transactions).extracting(row -> ((Number) row.get("balance_after")).longValue())
+                .containsExactly(90000L, 10000L);
+        assertThat(transactions).allSatisfy(row ->
+                assertThat(((Number) row.get("transfer_id")).longValue())
+                        .isEqualTo(((Number) transfer.get("id")).longValue()));
+    }
+
+    @Test
+    void transferFailsWithoutChangesWhenBalanceIsInsufficient() throws Exception {
+        createTransferAccount(1L, 5000L, "1234");
+        String toAccountNumber = createTransferAccount(2L, 0L, "5678");
+
+        performTransfer(1L, toAccountNumber, 10000L, "1234")
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("INSUFFICIENT_BALANCE"));
+        assertTransferFailureState(5000L, 0L);
+    }
+
+    @Test
+    void transferFailsWithoutChangesWhenPasswordDoesNotMatch() throws Exception {
+        createTransferAccount(1L, 100000L, "1234");
+        String toAccountNumber = createTransferAccount(2L, 0L, "5678");
+
+        performTransfer(1L, toAccountNumber, 10000L, "9999")
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_ACCOUNT_PASSWORD"));
+        assertTransferFailureState(100000L, 0L);
+    }
+
+    @Test
+    void transferFailsWhenReceiverAccountDoesNotExist() throws Exception {
+        createTransferAccount(1L, 100000L, "1234");
+
+        performTransfer(1L, "999999999999", 10000L, "1234")
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("RECEIVER_ACCOUNT_NOT_FOUND"));
+        assertThat(accountBalance(1L)).isEqualTo(100000L);
+        assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM transfers", Integer.class)).isZero();
+        assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM account_transactions", Integer.class)).isZero();
+    }
+
+    @Test
+    void transferFailsWhenSendingToSameAccount() throws Exception {
+        String accountNumber = createTransferAccount(1L, 100000L, "1234");
+
+        performTransfer(1L, accountNumber, 10000L, "1234")
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("CANNOT_TRANSFER_TO_SELF"));
+        assertThat(accountBalance(1L)).isEqualTo(100000L);
+        assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM transfers", Integer.class)).isZero();
+    }
+
+    @Test
+    void transferRejectsZeroAndNegativeAmounts() throws Exception {
+        createTransferAccount(1L, 100000L, "1234");
+        String toAccountNumber = createTransferAccount(2L, 0L, "5678");
+
+        performTransfer(1L, toAccountNumber, 0L, "1234").andExpect(status().isBadRequest());
+        performTransfer(1L, toAccountNumber, -1L, "1234").andExpect(status().isBadRequest());
+        assertTransferFailureState(100000L, 0L);
+    }
+
+    @Test
+    void transferFailsWithoutChangesWhenAccountIsInactive() throws Exception {
+        createTransferAccount(1L, 100000L, "1234");
+        String toAccountNumber = createTransferAccount(2L, 0L, "5678");
+        jdbcTemplate.update("UPDATE accounts SET status = 'SUSPENDED' WHERE member_id = 2");
+
+        performTransfer(1L, toAccountNumber, 10000L, "1234")
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("ACCOUNT_NOT_ACTIVE"));
+        assertTransferFailureState(100000L, 0L);
+    }
+
+    private org.springframework.test.web.servlet.ResultActions performTransfer(
+            Long memberId, String toAccountNumber, Long amount, String password) throws Exception {
+        return mockMvc.perform(post("/api/banking/transfers")
+                .header(MEMBER_ID_HEADER, memberId.toString())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(transferRequest(toAccountNumber, amount, password)));
+    }
+
+    private String transferRequest(String toAccountNumber, Long amount, String password) {
+        return "{\"toAccountNumber\":\"" + toAccountNumber + "\",\"amount\":" + amount
+                + ",\"accountPassword\":\"" + password + "\"}";
+    }
+
+    private String createTransferAccount(Long memberId, long balance, String password) {
+        String accountNumber = String.format("200000000%03d", memberId);
+        jdbcTemplate.update("""
+                INSERT INTO accounts (
+                    member_id, account_number, account_password_hash, balance, status
+                ) VALUES (?, ?, ?, ?, 'ACTIVE')
+                """, memberId, accountNumber, accountPasswordEncoder.encode(password), balance);
+        return accountNumber;
+    }
+
+    private void assertTransferFailureState(long fromBalance, long toBalance) {
+        assertThat(accountBalance(1L)).isEqualTo(fromBalance);
+        assertThat(accountBalance(2L)).isEqualTo(toBalance);
+        assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM transfers", Integer.class)).isZero();
+        assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM account_transactions", Integer.class)).isZero();
     }
 
     private org.springframework.test.web.servlet.ResultActions deposit(Long memberId, Long amount) throws Exception {

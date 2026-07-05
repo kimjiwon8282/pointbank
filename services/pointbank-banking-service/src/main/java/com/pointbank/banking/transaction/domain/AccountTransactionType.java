@@ -1,5 +1,7 @@
 package com.pointbank.banking.transaction.domain;
 
 public enum AccountTransactionType {
-    DEPOSIT
+    DEPOSIT,
+    TRANSFER_OUT,
+    TRANSFER_IN
 }

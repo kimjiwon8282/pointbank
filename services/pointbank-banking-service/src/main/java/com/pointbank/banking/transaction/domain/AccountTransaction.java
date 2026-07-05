@@ -7,6 +7,7 @@ public class AccountTransaction {
     private Long id;
     private Long accountId;
     private Long memberId;
+    private Long transferId;
     private AccountTransactionType transactionType;
     private long amount;
     private long balanceAfter;
@@ -24,8 +25,21 @@ public class AccountTransaction {
             long balanceAfter,
             String description
     ) {
+        this(accountId, memberId, null, transactionType, amount, balanceAfter, description);
+    }
+
+    public AccountTransaction(
+            Long accountId,
+            Long memberId,
+            Long transferId,
+            AccountTransactionType transactionType,
+            long amount,
+            long balanceAfter,
+            String description
+    ) {
         this.accountId = accountId;
         this.memberId = memberId;
+        this.transferId = transferId;
         this.transactionType = transactionType;
         this.amount = amount;
         this.balanceAfter = balanceAfter;
@@ -35,6 +49,7 @@ public class AccountTransaction {
     public Long getId() { return id; }
     public Long getAccountId() { return accountId; }
     public Long getMemberId() { return memberId; }
+    public Long getTransferId() { return transferId; }
     public AccountTransactionType getTransactionType() { return transactionType; }
     public long getAmount() { return amount; }
     public long getBalanceAfter() { return balanceAfter; }

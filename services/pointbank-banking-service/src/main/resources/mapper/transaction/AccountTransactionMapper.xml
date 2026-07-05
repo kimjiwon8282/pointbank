@@ -6,10 +6,10 @@
 
     <insert id="insert" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO account_transactions (
-            account_id, member_id, transaction_type,
+            account_id, member_id, transfer_id, transaction_type,
             amount, balance_after, description
         ) VALUES (
-            #{accountId}, #{memberId}, #{transactionType},
+            #{accountId}, #{memberId}, #{transferId}, #{transactionType},
             #{amount}, #{balanceAfter}, #{description}
         )
     </insert>
