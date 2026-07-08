@@ -10,9 +10,10 @@ public enum TransactionQueryType {
     public List<AccountTransactionType> toTransactionTypes() {
         return switch (this) {
             case ALL -> List.of(AccountTransactionType.DEPOSIT,
-                    AccountTransactionType.TRANSFER_IN, AccountTransactionType.TRANSFER_OUT);
+                    AccountTransactionType.TRANSFER_IN, AccountTransactionType.TRANSFER_OUT,
+                    AccountTransactionType.SECURITIES_DEPOSIT_OUT);
             case IN -> List.of(AccountTransactionType.DEPOSIT, AccountTransactionType.TRANSFER_IN);
-            case OUT -> List.of(AccountTransactionType.TRANSFER_OUT);
+            case OUT -> List.of(AccountTransactionType.TRANSFER_OUT, AccountTransactionType.SECURITIES_DEPOSIT_OUT);
         };
     }
 }

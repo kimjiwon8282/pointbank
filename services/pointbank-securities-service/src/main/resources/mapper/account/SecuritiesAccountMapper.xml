@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.pointbank.securities.account.mapper.SecuritiesAccountMapper">
+
+    <resultMap id="securitiesAccountResultMap" type="com.pointbank.securities.account.domain.SecuritiesAccount">
+        <id property="id" column="id"/>
+        <result property="memberId" column="member_id"/>
+        <result property="accountNumber" column="account_number"/>
+        <result property="accountPasswordHash" column="account_password_hash"/>
+        <result property="status" column="status" javaType="com.pointbank.securities.account.domain.SecuritiesAccountStatus"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+
+    <sql id="securitiesAccountColumns">
+        id, member_id, account_number, account_password_hash,
+        status, created_at, updated_at
+    </sql>
+
+    <select id="existsByMemberId" resultType="boolean">
+        SELECT COUNT(*) > 0
+        FROM securities_accounts
+        WHERE member_id = #{memberId}
+    </select>
+
+    <select id="existsByAccountNumber" resultType="boolean">
+        SELECT COUNT(*) > 0
+        FROM securities_accounts
+        WHERE account_number = #{accountNumber}
+    </select>
+
+    <select id="findByMemberId" resultMap="securitiesAccountResultMap">
+        SELECT <include refid="securitiesAccountColumns"/>
+        FROM securities_accounts
+        WHERE member_id = #{memberId}
+    </select>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO securities_accounts (
+            member_id, account_number, account_password_hash, status
+        ) VALUES (
+            #{memberId}, #{accountNumber}, #{accountPasswordHash}, #{status}
+        )
+    </insert>
+</mapper>

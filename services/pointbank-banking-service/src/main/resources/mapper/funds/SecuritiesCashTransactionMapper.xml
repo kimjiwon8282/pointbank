@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.pointbank.banking.funds.mapper.SecuritiesCashTransactionMapper">
+
+    <resultMap id="securitiesCashTransactionResultMap"
+               type="com.pointbank.banking.funds.domain.SecuritiesCashTransaction">
+        <id property="id" column="id"/>
+        <result property="securitiesCashAccountId" column="securities_cash_account_id"/>
+        <result property="memberId" column="member_id"/>
+        <result property="requestNo" column="request_no"/>
+        <result property="transactionType" column="transaction_type"
+                javaType="com.pointbank.banking.funds.domain.SecuritiesCashTransactionType"/>
+        <result property="amount" column="amount"/>
+        <result property="cashBalanceAfter" column="cash_balance_after"/>
+        <result property="reservedCashAfter" column="reserved_cash_after"/>
+        <result property="description" column="description"/>
+        <result property="createdAt" column="created_at"/>
+    </resultMap>
+
+    <sql id="securitiesCashTransactionColumns">
+        id, securities_cash_account_id, member_id, request_no, transaction_type,
+        amount, cash_balance_after, reserved_cash_after, description, created_at
+    </sql>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO securities_cash_transactions (
+            securities_cash_account_id, member_id, request_no, transaction_type,
+            amount, cash_balance_after, reserved_cash_after, description
+        ) VALUES (
+            #{securitiesCashAccountId}, #{memberId}, #{requestNo}, #{transactionType},
+            #{amount}, #{cashBalanceAfter}, #{reservedCashAfter}, #{description}
+        )
+    </insert>
+
+    <select id="findByRequestNo" resultMap="securitiesCashTransactionResultMap">
+        SELECT <include refid="securitiesCashTransactionColumns"/>
+        FROM securities_cash_transactions
+        WHERE request_no = #{requestNo}
+    </select>
+</mapper>

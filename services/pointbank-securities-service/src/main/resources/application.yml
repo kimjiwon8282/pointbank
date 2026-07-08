@@ -1,0 +1,23 @@
+server:
+  port: 8083
+
+spring:
+  application:
+    name: pointbank-securities-service
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: ${SECURITIES_DB_URL:jdbc:mysql://localhost:3306/securities_db?serverTimezone=Asia/Seoul&characterEncoding=UTF-8}
+    username: ${DB_USERNAME:pointbank}
+    password: ${DB_PASSWORD:pointbank}
+
+mybatis:
+  mapper-locations: classpath:/mapper/**/*.xml
+  type-aliases-package: com.pointbank.securities
+  configuration:
+    map-underscore-to-camel-case: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

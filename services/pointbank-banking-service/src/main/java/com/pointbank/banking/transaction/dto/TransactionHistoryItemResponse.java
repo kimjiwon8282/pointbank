@@ -22,7 +22,7 @@ public record TransactionHistoryItemResponse(
         String title = row.getDescription() != null && !row.getDescription().isBlank()
                 ? row.getDescription() : defaultTitle(row.getTransactionType());
         String counterparty = switch (row.getTransactionType()) {
-            case DEPOSIT -> null;
+            case DEPOSIT, SECURITIES_DEPOSIT_OUT -> null;
             case TRANSFER_OUT -> row.getToAccountNumber();
             case TRANSFER_IN -> row.getFromAccountNumber();
         };
@@ -39,6 +39,7 @@ public record TransactionHistoryItemResponse(
             case DEPOSIT -> "개발용 포인트 충전";
             case TRANSFER_OUT -> "포인트 송금 출금";
             case TRANSFER_IN -> "포인트 송금 입금";
+            case SECURITIES_DEPOSIT_OUT -> "증권 예수금 충전";
         };
     }
 }

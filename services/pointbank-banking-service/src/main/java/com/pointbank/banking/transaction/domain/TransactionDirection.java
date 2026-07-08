@@ -7,7 +7,7 @@ public enum TransactionDirection {
     public static TransactionDirection from(AccountTransactionType type) {
         return switch (type) {
             case DEPOSIT, TRANSFER_IN -> IN;
-            case TRANSFER_OUT -> OUT;
+            case TRANSFER_OUT, SECURITIES_DEPOSIT_OUT -> OUT;
         };
     }
 }
