@@ -47,6 +47,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class BankingAuthIntegrationTest {
 
     private static final String MEMBER_ID_HEADER = "X-Member-Id";
+    private static final String IDEMPOTENCY_KEY_HEADER = "Idempotency-Key";
     private static final String ROLE_HEADER = "X-Role";
 
     @Container
@@ -84,6 +85,7 @@ class BankingAuthIntegrationTest {
     void cleanDatabase() {
         jdbcTemplate.update("DELETE FROM account_transactions");
         jdbcTemplate.update("DELETE FROM transfers");
+        jdbcTemplate.update("DELETE FROM account_deposit_requests");
         jdbcTemplate.update("DELETE FROM accounts");
     }
 
@@ -230,6 +232,7 @@ class BankingAuthIntegrationTest {
 
         mockMvc.perform(post("/api/banking/accounts/deposit")
                         .header(MEMBER_ID_HEADER, "1")
+                        .header(IDEMPOTENCY_KEY_HEADER, "deposit-success")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"amount\":100000}"))
                 .andExpect(status().isOk())
@@ -431,6 +434,7 @@ class BankingAuthIntegrationTest {
 
         mockMvc.perform(post("/api/banking/transfers")
                         .header(MEMBER_ID_HEADER, "1")
+                        .header(IDEMPOTENCY_KEY_HEADER, "transfer-success")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(transferRequest(toAccountNumber, 10000L, "1234")))
                 .andExpect(status().isOk())
@@ -554,6 +558,7 @@ class BankingAuthIntegrationTest {
             Long memberId, String toAccountNumber, Long amount, String password) throws Exception {
         return mockMvc.perform(post("/api/banking/transfers")
                 .header(MEMBER_ID_HEADER, memberId.toString())
+                .header(IDEMPOTENCY_KEY_HEADER, "transfer-" + System.nanoTime())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(transferRequest(toAccountNumber, amount, password)));
     }
@@ -583,6 +588,7 @@ class BankingAuthIntegrationTest {
     private org.springframework.test.web.servlet.ResultActions deposit(Long memberId, Long amount) throws Exception {
         return mockMvc.perform(post("/api/banking/accounts/deposit")
                 .header(MEMBER_ID_HEADER, memberId.toString())
+                .header(IDEMPOTENCY_KEY_HEADER, "deposit-" + System.nanoTime())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"amount\":" + amount + "}"));
     }

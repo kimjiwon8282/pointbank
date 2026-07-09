@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class TransferController {
     private static final String MEMBER_ID_HEADER = "X-Member-Id";
+    private static final String IDEMPOTENCY_KEY_HEADER = "Idempotency-Key";
 
     private final TransferService transferService;
     private final CurrentMemberHeaderResolver currentMemberHeaderResolver;
@@ -25,9 +26,10 @@ public class TransferController {
     @PostMapping
     public ApiResponse<TransferResponse> transfer(
             @RequestHeader(value = MEMBER_ID_HEADER, required = false) String memberIdHeader,
+            @RequestHeader(value = IDEMPOTENCY_KEY_HEADER, required = false) String idempotencyKey,
             @Valid @RequestBody TransferCreateRequest request
     ) {
         Long memberId = currentMemberHeaderResolver.resolveMemberId(memberIdHeader);
-        return ApiResponse.success("송금이 완료되었습니다.", transferService.transfer(memberId, request));
+        return ApiResponse.success("송금이 완료되었습니다.", transferService.transfer(memberId, idempotencyKey, request));
     }
 }

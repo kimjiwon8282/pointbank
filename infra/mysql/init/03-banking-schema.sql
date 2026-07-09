@@ -32,6 +32,26 @@ CREATE TABLE IF NOT EXISTS account_transactions (
     INDEX idx_account_transactions_request_no (request_no)
 );
 
+CREATE TABLE IF NOT EXISTS account_deposit_requests (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    request_no VARCHAR(64) NOT NULL,
+    member_id BIGINT NOT NULL,
+    account_id BIGINT NULL,
+    amount BIGINT NOT NULL,
+    balance_after BIGINT NULL,
+    status VARCHAR(30) NOT NULL,
+    failure_reason VARCHAR(255) NULL,
+    created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+    completed_at DATETIME(6) NULL,
+    updated_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+
+    CONSTRAINT uk_account_deposit_requests_request_no UNIQUE (request_no),
+    CONSTRAINT chk_account_deposit_requests_amount_positive CHECK (amount > 0),
+
+    INDEX idx_account_deposit_requests_member_created (member_id, created_at DESC, id DESC),
+    INDEX idx_account_deposit_requests_status_created (status, created_at DESC, id DESC)
+);
+
 CREATE TABLE IF NOT EXISTS securities_cash_accounts (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     member_id BIGINT NOT NULL,
@@ -94,6 +114,7 @@ CREATE TABLE IF NOT EXISTS fund_transfer_requests (
 CREATE TABLE IF NOT EXISTS transfers (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     transfer_no VARCHAR(40) NOT NULL,
+    request_no VARCHAR(64) NULL,
     from_account_id BIGINT NOT NULL,
     to_account_id BIGINT NOT NULL,
     from_member_id BIGINT NOT NULL,
@@ -104,6 +125,7 @@ CREATE TABLE IF NOT EXISTS transfers (
     created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
     completed_at DATETIME(6) NULL,
     CONSTRAINT uk_transfers_transfer_no UNIQUE (transfer_no),
+    CONSTRAINT uk_transfers_request_no UNIQUE (request_no),
     INDEX idx_transfers_from_member_created (from_member_id, created_at DESC, id DESC),
     INDEX idx_transfers_to_member_created (to_member_id, created_at DESC, id DESC),
     INDEX idx_transfers_from_account_created (from_account_id, created_at DESC, id DESC),

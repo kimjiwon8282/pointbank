@@ -5,6 +5,7 @@ import java.time.LocalDateTime;
 public class Transfer {
     private Long id;
     private String transferNo;
+    private String requestNo;
     private Long fromAccountId;
     private Long toAccountId;
     private Long fromMemberId;
@@ -21,7 +22,15 @@ public class Transfer {
     public Transfer(String transferNo, Long fromAccountId, Long toAccountId,
                     Long fromMemberId, Long toMemberId, long amount,
                     TransferStatus status, String failureReason, LocalDateTime completedAt) {
+        this(transferNo, null, fromAccountId, toAccountId, fromMemberId, toMemberId,
+                amount, status, failureReason, completedAt);
+    }
+
+    public Transfer(String transferNo, String requestNo, Long fromAccountId, Long toAccountId,
+                    Long fromMemberId, Long toMemberId, long amount,
+                    TransferStatus status, String failureReason, LocalDateTime completedAt) {
         this.transferNo = transferNo;
+        this.requestNo = requestNo;
         this.fromAccountId = fromAccountId;
         this.toAccountId = toAccountId;
         this.fromMemberId = fromMemberId;
@@ -38,6 +47,12 @@ public class Transfer {
                 amount, TransferStatus.REQUESTED, null, null);
     }
 
+    public static Transfer requested(String transferNo, String requestNo, Long fromAccountId, Long toAccountId,
+                                     Long fromMemberId, Long toMemberId, long amount) {
+        return new Transfer(transferNo, requestNo, fromAccountId, toAccountId, fromMemberId, toMemberId,
+                amount, TransferStatus.REQUESTED, null, null);
+    }
+
     public static Transfer completed(String transferNo, Long fromAccountId, Long toAccountId,
                                      Long fromMemberId, Long toMemberId, long amount,
                                      LocalDateTime completedAt) {
@@ -45,8 +60,16 @@ public class Transfer {
                 amount, TransferStatus.COMPLETED, null, completedAt);
     }
 
+    public static Transfer completed(String transferNo, String requestNo, Long fromAccountId, Long toAccountId,
+                                     Long fromMemberId, Long toMemberId, long amount,
+                                     LocalDateTime completedAt) {
+        return new Transfer(transferNo, requestNo, fromAccountId, toAccountId, fromMemberId, toMemberId,
+                amount, TransferStatus.COMPLETED, null, completedAt);
+    }
+
     public Long getId() { return id; }
     public String getTransferNo() { return transferNo; }
+    public String getRequestNo() { return requestNo; }
     public Long getFromAccountId() { return fromAccountId; }
     public Long getToAccountId() { return toAccountId; }
     public Long getFromMemberId() { return fromMemberId; }

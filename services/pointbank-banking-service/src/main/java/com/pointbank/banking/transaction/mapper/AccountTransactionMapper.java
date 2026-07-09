@@ -8,10 +8,16 @@ import org.apache.ibatis.annotations.Param;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 @Mapper
 public interface AccountTransactionMapper {
     int insert(AccountTransaction transaction);
+
+    Optional<AccountTransaction> findByTransferIdAndTransactionType(
+            @Param("transferId") Long transferId,
+            @Param("transactionType") AccountTransactionType transactionType
+    );
 
     List<TransactionHistoryRow> findHistories(
             @Param("accountId") Long accountId,

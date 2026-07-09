@@ -22,6 +22,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class AccountController {
 
     private static final String MEMBER_ID_HEADER = "X-Member-Id";
+    private static final String IDEMPOTENCY_KEY_HEADER = "Idempotency-Key";
 
     private final AccountService accountService;
     private final CurrentMemberHeaderResolver currentMemberHeaderResolver;
@@ -46,12 +47,13 @@ public class AccountController {
     @PostMapping("/deposit")
     public ApiResponse<AccountDepositResponse> deposit(
             @RequestHeader(value = MEMBER_ID_HEADER, required = false) String memberIdHeader,
+            @RequestHeader(value = IDEMPOTENCY_KEY_HEADER, required = false) String idempotencyKey,
             @Valid @RequestBody AccountDepositRequest request
     ) {
         Long memberId = currentMemberHeaderResolver.resolveMemberId(memberIdHeader);
         return ApiResponse.success(
                 "개발용 포인트 충전이 완료되었습니다.",
-                accountService.deposit(memberId, request)
+                accountService.deposit(memberId, idempotencyKey, request)
         );
     }
 }

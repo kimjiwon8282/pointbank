@@ -6,6 +6,7 @@
     <resultMap id="transferResultMap" type="com.pointbank.banking.transfer.domain.Transfer">
         <id property="id" column="id"/>
         <result property="transferNo" column="transfer_no"/>
+        <result property="requestNo" column="request_no"/>
         <result property="fromAccountId" column="from_account_id"/>
         <result property="toAccountId" column="to_account_id"/>
         <result property="fromMemberId" column="from_member_id"/>
@@ -18,19 +19,27 @@
     </resultMap>
 
     <sql id="transferColumns">
-        id, transfer_no, from_account_id, to_account_id, from_member_id,
+        id, transfer_no, request_no, from_account_id, to_account_id, from_member_id,
         to_member_id, amount, status, failure_reason, created_at, completed_at
     </sql>
 
     <insert id="insert" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO transfers (
-            transfer_no, from_account_id, to_account_id, from_member_id,
+            transfer_no, request_no, from_account_id, to_account_id, from_member_id,
             to_member_id, amount, status, failure_reason, completed_at
         ) VALUES (
-            #{transferNo}, #{fromAccountId}, #{toAccountId}, #{fromMemberId},
+            #{transferNo}, #{requestNo}, #{fromAccountId}, #{toAccountId}, #{fromMemberId},
             #{toMemberId}, #{amount}, #{status}, #{failureReason}, #{completedAt}
         )
     </insert>
+
+    <update id="complete">
+        UPDATE transfers
+        SET status = 'COMPLETED',
+            completed_at = #{completedAt}
+        WHERE id = #{id}
+          AND status = 'REQUESTED'
+    </update>
 
     <select id="findById" resultMap="transferResultMap">
         SELECT <include refid="transferColumns"/> FROM transfers WHERE id = #{id}
@@ -38,5 +47,9 @@
 
     <select id="findByTransferNo" resultMap="transferResultMap">
         SELECT <include refid="transferColumns"/> FROM transfers WHERE transfer_no = #{transferNo}
+    </select>
+
+    <select id="findByRequestNo" resultMap="transferResultMap">
+        SELECT <include refid="transferColumns"/> FROM transfers WHERE request_no = #{requestNo}
     </select>
 </mapper>
