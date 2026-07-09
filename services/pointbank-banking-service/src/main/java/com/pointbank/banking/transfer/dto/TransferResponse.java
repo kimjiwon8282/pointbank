@@ -1,6 +1,5 @@
 package com.pointbank.banking.transfer.dto;
 
-import com.pointbank.banking.transfer.domain.TransferStatus;
 import java.time.LocalDateTime;
 
 public record TransferResponse(
@@ -9,7 +8,7 @@ public record TransferResponse(
         String toAccountNumber,
         long amount,
         long fromBalanceAfter,
-        TransferStatus status,
+        String status,
         LocalDateTime completedAt
 ) {
 }

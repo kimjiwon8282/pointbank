@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.pointbank.ledger.account.mapper.LedgerAccountMapper">
+    <resultMap id="ledgerAccountResultMap" type="com.pointbank.ledger.account.domain.LedgerAccount">
+        <id property="id" column="id"/>
+        <result property="memberId" column="member_id"/>
+        <result property="accountType" column="account_type" javaType="com.pointbank.ledger.account.domain.LedgerAccountType"/>
+        <result property="accountNumber" column="account_number"/>
+        <result property="accountPasswordHash" column="account_password_hash"/>
+        <result property="balance" column="balance"/>
+        <result property="reservedBalance" column="reserved_balance"/>
+        <result property="status" column="status" javaType="com.pointbank.ledger.account.domain.LedgerAccountStatus"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+
+    <sql id="ledgerAccountColumns">
+        id, member_id, account_type, account_number, account_password_hash,
+        balance, reserved_balance, status, created_at, updated_at
+    </sql>
+
+    <select id="existsByMemberIdAndType" resultType="boolean">
+        SELECT COUNT(*) > 0 FROM ledger_accounts
+        WHERE member_id = #{memberId} AND account_type = #{accountType}
+    </select>
+
+    <select id="findByMemberIdAndType" resultMap="ledgerAccountResultMap">
+        SELECT <include refid="ledgerAccountColumns"/>
+        FROM ledger_accounts
+        WHERE member_id = #{memberId} AND account_type = #{accountType}
+    </select>
+
+    <select id="findByAccountNumberAndType" resultMap="ledgerAccountResultMap">
+        SELECT <include refid="ledgerAccountColumns"/>
+        FROM ledger_accounts
+        WHERE account_number = #{accountNumber} AND account_type = #{accountType}
+    </select>
+
+    <select id="findById" resultMap="ledgerAccountResultMap">
+        SELECT <include refid="ledgerAccountColumns"/>
+        FROM ledger_accounts
+        WHERE id = #{id}
+    </select>
+
+    <select id="findAllByIdsForUpdate" resultMap="ledgerAccountResultMap">
+        SELECT <include refid="ledgerAccountColumns"/>
+        FROM ledger_accounts
+        WHERE id IN
+        <foreach collection="accountIds" item="accountId" open="(" separator="," close=")">
+            #{accountId}
+        </foreach>
+        ORDER BY id ASC
+        FOR UPDATE
+    </select>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO ledger_accounts (
+            member_id, account_type, account_number, account_password_hash,
+            balance, reserved_balance, status
+        ) VALUES (
+            #{memberId}, #{accountType}, #{accountNumber}, #{accountPasswordHash},
+            #{balance}, #{reservedBalance}, #{status}
+        )
+    </insert>
+
+    <update id="updateBalance">
+        UPDATE ledger_accounts
+        SET balance = #{balance}
+        WHERE id = #{accountId}
+    </update>
+</mapper>

@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.pointbank.ledger.entry.mapper.LedgerEntryMapper">
+    <resultMap id="ledgerEntryResultMap" type="com.pointbank.ledger.entry.domain.LedgerEntry">
+        <id property="id" column="id"/>
+        <result property="requestNo" column="request_no"/>
+        <result property="transferRequestId" column="transfer_request_id"/>
+        <result property="ledgerAccountId" column="ledger_account_id"/>
+        <result property="memberId" column="member_id"/>
+        <result property="accountType" column="account_type" javaType="com.pointbank.ledger.account.domain.LedgerAccountType"/>
+        <result property="entryType" column="entry_type" javaType="com.pointbank.ledger.entry.domain.LedgerEntryType"/>
+        <result property="direction" column="direction" javaType="com.pointbank.ledger.entry.domain.LedgerEntryDirection"/>
+        <result property="amount" column="amount"/>
+        <result property="balanceAfter" column="balance_after"/>
+        <result property="reservedBalanceAfter" column="reserved_balance_after"/>
+        <result property="description" column="description"/>
+        <result property="createdAt" column="created_at"/>
+    </resultMap>
+
+    <resultMap id="historyRowMap" type="com.pointbank.ledger.entry.dto.LedgerTransactionHistoryRow">
+        <id property="transactionId" column="transaction_id"/>
+        <result property="transactionType" column="transaction_type"/>
+        <result property="amount" column="amount"/>
+        <result property="balanceAfter" column="balance_after"/>
+        <result property="description" column="description"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="transferNo" column="transfer_no"/>
+        <result property="fromAccountNumber" column="from_account_number"/>
+        <result property="toAccountNumber" column="to_account_number"/>
+    </resultMap>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO ledger_entries (
+            request_no, transfer_request_id, ledger_account_id, member_id,
+            account_type, entry_type, direction, amount, balance_after,
+            reserved_balance_after, description
+        ) VALUES (
+            #{requestNo}, #{transferRequestId}, #{ledgerAccountId}, #{memberId},
+            #{accountType}, #{entryType}, #{direction}, #{amount}, #{balanceAfter},
+            #{reservedBalanceAfter}, #{description}
+        )
+    </insert>
+
+    <select id="findByTransferRequestIdAndEntryType" resultMap="ledgerEntryResultMap">
+        SELECT
+            id, request_no, transfer_request_id, ledger_account_id, member_id,
+            account_type, entry_type, direction, amount, balance_after,
+            reserved_balance_after, description, created_at
+        FROM ledger_entries
+        WHERE transfer_request_id = #{transferRequestId}
+          AND entry_type = #{entryType}
+    </select>
+
+    <select id="findBankingHistories" resultMap="historyRowMap">
+        SELECT
+            le.id AS transaction_id,
+            le.entry_type AS transaction_type,
+            le.amount,
+            le.balance_after,
+            le.description,
+            le.created_at,
+            le.request_no AS transfer_no,
+            source_account.account_number AS from_account_number,
+            target_account.account_number AS to_account_number
+        FROM ledger_entries le
+        LEFT JOIN ledger_transfer_requests ltr ON le.transfer_request_id = ltr.id
+        LEFT JOIN ledger_accounts source_account ON ltr.source_account_id = source_account.id
+        LEFT JOIN ledger_accounts target_account ON ltr.target_account_id = target_account.id
+        WHERE le.ledger_account_id = #{ledgerAccountId}
+          AND le.entry_type IN
+          <foreach collection="types" item="type" open="(" separator="," close=")">
+              #{type}
+          </foreach>
+          AND le.created_at &gt;= #{fromCreatedAt}
+          AND le.created_at &lt; #{toCreatedAtExclusive}
+        <if test="cursorCreatedAt != null and cursorId != null">
+          AND (
+              le.created_at &lt; #{cursorCreatedAt}
+              OR (le.created_at = #{cursorCreatedAt} AND le.id &lt; #{cursorId})
+          )
+        </if>
+        ORDER BY le.created_at DESC, le.id DESC
+        LIMIT #{limit}
+    </select>
+</mapper>

@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.pointbank.ledger.transfer.mapper.LedgerTransferRequestMapper">
+    <resultMap id="ledgerTransferRequestResultMap" type="com.pointbank.ledger.transfer.domain.LedgerTransferRequest">
+        <id property="id" column="id"/>
+        <result property="requestNo" column="request_no"/>
+        <result property="transferType" column="transfer_type" javaType="com.pointbank.ledger.transfer.domain.LedgerTransferType"/>
+        <result property="sourceAccountId" column="source_account_id"/>
+        <result property="targetAccountId" column="target_account_id"/>
+        <result property="fromMemberId" column="from_member_id"/>
+        <result property="toMemberId" column="to_member_id"/>
+        <result property="amount" column="amount"/>
+        <result property="sourceBalanceAfter" column="source_balance_after"/>
+        <result property="targetBalanceAfter" column="target_balance_after"/>
+        <result property="status" column="status" javaType="com.pointbank.ledger.transfer.domain.LedgerTransferStatus"/>
+        <result property="failureReason" column="failure_reason"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="completedAt" column="completed_at"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+
+    <sql id="ledgerTransferRequestColumns">
+        id, request_no, transfer_type, source_account_id, target_account_id,
+        from_member_id, to_member_id, amount, source_balance_after,
+        target_balance_after, status, failure_reason, created_at, completed_at, updated_at
+    </sql>
+
+    <insert id="insertRequested" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO ledger_transfer_requests (
+            request_no, transfer_type, source_account_id, target_account_id,
+            from_member_id, to_member_id, amount, status
+        ) VALUES (
+            #{requestNo}, #{transferType}, #{sourceAccountId}, #{targetAccountId},
+            #{fromMemberId}, #{toMemberId}, #{amount}, #{status}
+        )
+    </insert>
+
+    <select id="findByRequestNo" resultMap="ledgerTransferRequestResultMap">
+        SELECT <include refid="ledgerTransferRequestColumns"/>
+        FROM ledger_transfer_requests
+        WHERE request_no = #{requestNo}
+    </select>
+
+    <update id="complete">
+        UPDATE ledger_transfer_requests
+        SET source_balance_after = #{sourceBalanceAfter},
+            target_balance_after = #{targetBalanceAfter},
+            status = 'COMPLETED',
+            completed_at = #{completedAt}
+        WHERE id = #{id}
+          AND status = 'REQUESTED'
+    </update>
+</mapper>
