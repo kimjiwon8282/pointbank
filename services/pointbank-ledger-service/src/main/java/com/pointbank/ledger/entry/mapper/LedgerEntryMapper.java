@@ -13,6 +13,8 @@ import java.util.Optional;
 public interface LedgerEntryMapper {
     int insert(LedgerEntry entry);
 
+    boolean existsByLedgerAccountId(Long ledgerAccountId);
+
     Optional<LedgerEntry> findByTransferRequestIdAndEntryType(
             @Param("transferRequestId") Long transferRequestId,
             @Param("entryType") String entryType

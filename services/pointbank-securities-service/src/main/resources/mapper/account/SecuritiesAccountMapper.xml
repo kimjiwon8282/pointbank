@@ -37,6 +37,12 @@
         WHERE member_id = #{memberId}
     </select>
 
+    <select id="findById" resultMap="securitiesAccountResultMap">
+        SELECT <include refid="securitiesAccountColumns"/>
+        FROM securities_accounts
+        WHERE id = #{id}
+    </select>
+
     <insert id="insert" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO securities_accounts (
             member_id, account_number, account_password_hash, status
@@ -44,4 +50,16 @@
             #{memberId}, #{accountNumber}, #{accountPasswordHash}, #{status}
         )
     </insert>
+
+    <update id="updateStatus">
+        UPDATE securities_accounts
+        SET status = #{status}
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById">
+        DELETE FROM securities_accounts
+        WHERE id = #{id}
+          AND status = 'PENDING_CASH_ACCOUNT'
+    </delete>
 </mapper>

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.pointbank.securities.message.mapper.ProcessedMessageMapper">
+    <select id="existsByEventId" resultType="boolean">
+        SELECT COUNT(*) > 0
+        FROM processed_messages
+        WHERE event_id = #{eventId}
+    </select>
+
+    <insert id="insert">
+        INSERT INTO processed_messages (event_id, message_type)
+        VALUES (#{eventId}, #{messageType})
+    </insert>
+</mapper>

@@ -21,3 +21,12 @@ management:
     web:
       exposure:
         include: health,info
+
+pointbank:
+  sqs:
+    endpoint: ${SQS_ENDPOINT:http://localhost:4566}
+    region: ${AWS_REGION:ap-northeast-2}
+    ledger-command-queue-url: ${LEDGER_COMMAND_QUEUE_URL:http://localhost:4566/000000000000/ledger-command-queue.fifo}
+    ledger-command-dlq-url: ${LEDGER_COMMAND_DLQ_URL:http://localhost:4566/000000000000/ledger-command-dlq.fifo}
+    securities-result-queue-url: ${SECURITIES_RESULT_QUEUE_URL:http://localhost:4566/000000000000/securities-result-queue.fifo}
+    securities-result-dlq-url: ${SECURITIES_RESULT_DLQ_URL:http://localhost:4566/000000000000/securities-result-dlq.fifo}

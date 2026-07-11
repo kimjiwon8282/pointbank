@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.pointbank.ledger.outbox.mapper.OutboxEventMapper">
+    <resultMap id="outboxEventResultMap" type="com.pointbank.ledger.outbox.domain.OutboxEvent">
+        <id property="id" column="id"/>
+        <result property="eventId" column="event_id"/>
+        <result property="eventType" column="event_type"/>
+        <result property="aggregateType" column="aggregate_type"/>
+        <result property="aggregateId" column="aggregate_id"/>
+        <result property="payload" column="payload"/>
+        <result property="status" column="status" javaType="com.pointbank.ledger.outbox.domain.OutboxEventStatus"/>
+        <result property="retryCount" column="retry_count"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="publishedAt" column="published_at"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO outbox_events (
+            event_id, event_type, aggregate_type, aggregate_id, payload, status
+        ) VALUES (
+            #{eventId}, #{eventType}, #{aggregateType}, #{aggregateId}, #{payload}, #{status}
+        )
+    </insert>
+
+    <select id="findPendingByEventType" resultMap="outboxEventResultMap">
+        SELECT id, event_id, event_type, aggregate_type, aggregate_id, payload,
+               status, retry_count, created_at, published_at, updated_at
+        FROM outbox_events
+        WHERE status = 'PENDING'
+          AND event_type = #{eventType}
+        ORDER BY created_at ASC, id ASC
+        LIMIT #{limit}
+    </select>
+
+    <update id="markPublished">
+        UPDATE outbox_events
+        SET status = 'PUBLISHED', published_at = CURRENT_TIMESTAMP(6)
+        WHERE event_id = #{eventId}
+    </update>
+
+    <update id="markFailed">
+        UPDATE outbox_events
+        SET status = 'FAILED'
+        WHERE event_id = #{eventId}
+    </update>
+
+    <update id="incrementRetryCount">
+        UPDATE outbox_events
+        SET retry_count = retry_count + 1
+        WHERE event_id = #{eventId}
+    </update>
+</mapper>

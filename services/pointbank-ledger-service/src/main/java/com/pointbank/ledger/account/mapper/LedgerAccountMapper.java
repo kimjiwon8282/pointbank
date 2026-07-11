@@ -17,4 +17,5 @@ public interface LedgerAccountMapper {
     List<LedgerAccount> findAllByIdsForUpdate(@Param("accountIds") List<Long> accountIds);
     int insert(LedgerAccount account);
     int updateBalance(@Param("accountId") Long accountId, @Param("balance") long balance);
+    int deleteById(Long accountId);
 }

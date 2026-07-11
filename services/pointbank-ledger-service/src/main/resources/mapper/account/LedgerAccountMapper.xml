@@ -70,4 +70,10 @@
         SET balance = #{balance}
         WHERE id = #{accountId}
     </update>
+
+    <delete id="deleteById">
+        DELETE FROM ledger_accounts
+        WHERE id = #{accountId}
+          AND account_type = 'SECURITIES_CASH'
+    </delete>
 </mapper>

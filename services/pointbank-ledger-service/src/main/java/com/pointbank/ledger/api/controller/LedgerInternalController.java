@@ -4,6 +4,7 @@ import com.pointbank.ledger.api.dto.AccountDepositRequest;
 import com.pointbank.ledger.api.dto.AccountDepositResponse;
 import com.pointbank.ledger.api.dto.BankingAccountCreateRequest;
 import com.pointbank.ledger.api.dto.BankingAccountResponse;
+import com.pointbank.ledger.api.dto.SecuritiesCashAccountCleanupResponse;
 import com.pointbank.ledger.api.dto.SecuritiesCashAccountCreateRequest;
 import com.pointbank.ledger.api.dto.SecuritiesCashAccountResponse;
 import com.pointbank.ledger.api.dto.SecuritiesCashDepositRequest;
@@ -17,6 +18,7 @@ import com.pointbank.ledger.global.response.ApiResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -100,6 +102,13 @@ public class LedgerInternalController {
         return ApiResponse.success(
                 "증권 예수금 조회에 성공했습니다.",
                 ledgerInternalService.getSecuritiesCashAccount(memberId));
+    }
+
+    @DeleteMapping("/securities/cash/accounts")
+    public ApiResponse<SecuritiesCashAccountCleanupResponse> cleanupSecuritiesCashAccount(@RequestParam Long memberId) {
+        return ApiResponse.success(
+                "SECURITIES_CASH cleanup completed.",
+                ledgerInternalService.cleanupSecuritiesCashAccount(memberId));
     }
 
     @PostMapping("/securities/cash/deposit")

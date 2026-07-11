@@ -43,6 +43,12 @@
         )
     </insert>
 
+    <select id="existsByLedgerAccountId" resultType="boolean">
+        SELECT COUNT(*) > 0
+        FROM ledger_entries
+        WHERE ledger_account_id = #{ledgerAccountId}
+    </select>
+
     <select id="findByTransferRequestIdAndEntryType" resultMap="ledgerEntryResultMap">
         SELECT
             id, request_no, transfer_request_id, ledger_account_id, member_id,

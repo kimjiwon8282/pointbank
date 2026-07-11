@@ -21,5 +21,17 @@ services:
       timeout: 3s
       retries: 20
 
+  pointbank-localstack:
+    image: localstack/localstack:3.8
+    container_name: pointbank-localstack
+    ports:
+      - "4566:4566"
+    environment:
+      SERVICES: sqs
+      DEFAULT_REGION: ap-northeast-2
+      AWS_DEFAULT_REGION: ap-northeast-2
+    volumes:
+      - ./localstack/init:/etc/localstack/init/ready.d
+
 volumes:
   pointbank-mysql-data:

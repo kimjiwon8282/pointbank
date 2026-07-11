@@ -8,6 +8,7 @@ import com.pointbank.ledger.account.service.LedgerAccountNumberGenerator;
 import com.pointbank.ledger.api.dto.AccountDepositResponse;
 import com.pointbank.ledger.api.dto.BankingAccountCreateRequest;
 import com.pointbank.ledger.api.dto.BankingAccountResponse;
+import com.pointbank.ledger.api.dto.SecuritiesCashAccountCleanupResponse;
 import com.pointbank.ledger.api.dto.SecuritiesCashAccountResponse;
 import com.pointbank.ledger.api.dto.SecuritiesCashDepositResponse;
 import com.pointbank.ledger.api.dto.TransactionHistoryItemResponse;
@@ -115,6 +116,23 @@ public class LedgerInternalService {
         LedgerAccount account = accountMapper.findByMemberIdAndType(memberId, LedgerAccountType.SECURITIES_CASH)
                 .orElseThrow(() -> new CustomException(ErrorCode.SECURITIES_CASH_ACCOUNT_NOT_FOUND));
         return securitiesCashAccountResponse(account);
+    }
+
+    @Transactional
+    public SecuritiesCashAccountCleanupResponse cleanupSecuritiesCashAccount(Long memberId) {
+        LedgerAccount account = accountMapper.findByMemberIdAndType(memberId, LedgerAccountType.SECURITIES_CASH)
+                .orElse(null);
+        if (account == null) {
+            return new SecuritiesCashAccountCleanupResponse(memberId, false, "SECURITIES_CASH account not found");
+        }
+        if (account.getBalance() != 0L || account.getReservedBalance() != 0L) {
+            throw new CustomException(ErrorCode.BAD_REQUEST);
+        }
+        if (entryMapper.existsByLedgerAccountId(account.getId())) {
+            throw new CustomException(ErrorCode.BAD_REQUEST);
+        }
+        accountMapper.deleteById(account.getId());
+        return new SecuritiesCashAccountCleanupResponse(memberId, true, "SECURITIES_CASH account deleted");
     }
 
     @Transactional

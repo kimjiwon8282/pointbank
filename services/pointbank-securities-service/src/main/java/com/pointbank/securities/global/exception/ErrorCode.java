@@ -16,6 +16,11 @@ public enum ErrorCode {
             "SECURITIES_ACCOUNT_ALREADY_EXISTS",
             "이미 증권계좌가 존재합니다."
     ),
+    LEDGER_SERVICE_UNAVAILABLE(
+            HttpStatus.SERVICE_UNAVAILABLE,
+            "LEDGER_SERVICE_UNAVAILABLE",
+            "Ledger Service is unavailable."
+    ),
     INTERNAL_SERVER_ERROR(
             HttpStatus.INTERNAL_SERVER_ERROR,
             "INTERNAL_SERVER_ERROR",
