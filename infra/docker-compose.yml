@@ -33,5 +33,110 @@ services:
     volumes:
       - ./localstack/init:/etc/localstack/init/ready.d
 
+  pointbank-auth-service:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      args:
+        SERVICE: pointbank-auth-service
+    container_name: pointbank-auth-service
+    ports:
+      - "8081:8081"
+    environment:
+      AUTH_DB_URL: jdbc:mysql://pointbank-mysql:3306/auth_db?serverTimezone=Asia/Seoul&characterEncoding=UTF-8
+      DB_USERNAME: ${MYSQL_USER}
+      DB_PASSWORD: ${MYSQL_PASSWORD}
+    depends_on:
+      pointbank-mysql:
+        condition: service_healthy
+
+  pointbank-ledger-service:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      args:
+        SERVICE: pointbank-ledger-service
+    container_name: pointbank-ledger-service
+    ports:
+      - "8084:8084"
+    environment:
+      LEDGER_DB_URL: jdbc:mysql://pointbank-mysql:3306/ledger_db?serverTimezone=Asia/Seoul&characterEncoding=UTF-8
+      DB_USERNAME: ${MYSQL_USER}
+      DB_PASSWORD: ${MYSQL_PASSWORD}
+      SQS_ENDPOINT: http://pointbank-localstack:4566
+      AWS_REGION: ap-northeast-2
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
+      LEDGER_COMMAND_QUEUE_URL: http://pointbank-localstack:4566/000000000000/ledger-command-queue.fifo
+      LEDGER_COMMAND_DLQ_URL: http://pointbank-localstack:4566/000000000000/ledger-command-dlq.fifo
+      SECURITIES_RESULT_QUEUE_URL: http://pointbank-localstack:4566/000000000000/securities-result-queue.fifo
+      SECURITIES_RESULT_DLQ_URL: http://pointbank-localstack:4566/000000000000/securities-result-dlq.fifo
+    depends_on:
+      pointbank-mysql:
+        condition: service_healthy
+      pointbank-localstack:
+        condition: service_started
+
+  pointbank-securities-service:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      args:
+        SERVICE: pointbank-securities-service
+    container_name: pointbank-securities-service
+    ports:
+      - "8083:8083"
+    environment:
+      SECURITIES_DB_URL: jdbc:mysql://pointbank-mysql:3306/securities_db?serverTimezone=Asia/Seoul&characterEncoding=UTF-8
+      DB_USERNAME: ${MYSQL_USER}
+      DB_PASSWORD: ${MYSQL_PASSWORD}
+      LEDGER_SERVICE_BASE_URL: http://pointbank-ledger-service:8084
+      SQS_ENDPOINT: http://pointbank-localstack:4566
+      AWS_REGION: ap-northeast-2
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
+      LEDGER_COMMAND_QUEUE_URL: http://pointbank-localstack:4566/000000000000/ledger-command-queue.fifo
+      LEDGER_COMMAND_DLQ_URL: http://pointbank-localstack:4566/000000000000/ledger-command-dlq.fifo
+      SECURITIES_RESULT_QUEUE_URL: http://pointbank-localstack:4566/000000000000/securities-result-queue.fifo
+      SECURITIES_RESULT_DLQ_URL: http://pointbank-localstack:4566/000000000000/securities-result-dlq.fifo
+    depends_on:
+      pointbank-mysql:
+        condition: service_healthy
+      pointbank-localstack:
+        condition: service_started
+
+  pointbank-banking-service:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      args:
+        SERVICE: pointbank-banking-service
+    container_name: pointbank-banking-service
+    ports:
+      - "8082:8082"
+    environment:
+      LEDGER_SERVICE_BASE_URL: http://pointbank-ledger-service:8084
+    depends_on:
+      - pointbank-ledger-service
+
+  pointbank-gateway-service:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      args:
+        SERVICE: pointbank-gateway-service
+    container_name: pointbank-gateway-service
+    ports:
+      - "8080:8080"
+    environment:
+      AUTH_SERVICE_URI: http://pointbank-auth-service:8081
+      BANKING_SERVICE_URI: http://pointbank-banking-service:8082
+      SECURITIES_SERVICE_URI: http://pointbank-securities-service:8083
+      AUTH_VALIDATE_URL: http://pointbank-auth-service:8081/internal/auth/validate
+    depends_on:
+      - pointbank-auth-service
+      - pointbank-banking-service
+      - pointbank-securities-service
+
 volumes:
   pointbank-mysql-data:

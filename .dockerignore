@@ -1,0 +1,12 @@
+.git
+.github
+.gradle
+**/.gradle
+build
+**/build
+.idea
+*.iml
+docs
+CLAUDE.md
+infra/mysql/data
+*.log
