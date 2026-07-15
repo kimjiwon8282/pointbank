@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.pointbank.securities.execution.mapper.SecuritiesExecutionMapper">
+    <resultMap id="executionResultMap" type="com.pointbank.securities.execution.domain.SecuritiesExecution">
+        <id property="id" column="id"/>
+        <result property="orderId" column="order_id"/>
+        <result property="orderNo" column="order_no"/>
+        <result property="securitiesAccountId" column="securities_account_id"/>
+        <result property="memberId" column="member_id"/>
+        <result property="stockCode" column="stock_code"/>
+        <result property="executionSide" column="execution_side" javaType="com.pointbank.securities.execution.domain.ExecutionSide"/>
+        <result property="executionPrice" column="execution_price"/>
+        <result property="quantity" column="quantity"/>
+        <result property="executionAmount" column="execution_amount"/>
+        <result property="fee" column="fee"/>
+        <result property="tax" column="tax"/>
+        <result property="buyCost" column="buy_cost"/>
+        <result property="realizedProfit" column="realized_profit"/>
+        <result property="realizedReturnRate" column="realized_return_rate"/>
+        <result property="executedAt" column="executed_at"/>
+    </resultMap>
+
+    <sql id="executionColumns">
+        id, order_id, order_no, securities_account_id, member_id, stock_code,
+        execution_side, execution_price, quantity, execution_amount, fee, tax,
+        buy_cost, realized_profit, realized_return_rate, executed_at
+    </sql>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO securities_executions (
+            order_id, order_no, securities_account_id, member_id, stock_code,
+            execution_side, execution_price, quantity, execution_amount, fee, tax,
+            buy_cost, realized_profit, realized_return_rate, executed_at
+        ) VALUES (
+            #{orderId}, #{orderNo}, #{securitiesAccountId}, #{memberId}, #{stockCode},
+            #{executionSide}, #{executionPrice}, #{quantity}, #{executionAmount}, #{fee}, #{tax},
+            #{buyCost}, #{realizedProfit}, #{realizedReturnRate}, #{executedAt}
+        )
+    </insert>
+
+    <select id="findByOrderId" resultMap="executionResultMap">
+        SELECT <include refid="executionColumns"/>
+        FROM securities_executions
+        WHERE order_id = #{orderId}
+    </select>
+
+    <select id="findExecutionsByMemberIdOrderByExecutedAtDesc" resultMap="executionResultMap">
+        SELECT <include refid="executionColumns"/>
+        FROM securities_executions
+        WHERE member_id = #{memberId}
+        ORDER BY executed_at DESC, id DESC
+        LIMIT #{limit}
+    </select>
+
+    <select id="sumRealizedProfitByMemberIdAndPeriod" resultType="java.lang.Long">
+        SELECT COALESCE(SUM(realized_profit), 0)
+        FROM securities_executions
+        WHERE member_id = #{memberId}
+          AND execution_side = 'SELL'
+          AND executed_at &gt;= #{from}
+          AND executed_at &lt; #{to}
+    </select>
+</mapper>

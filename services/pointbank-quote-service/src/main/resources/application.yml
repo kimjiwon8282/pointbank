@@ -1,0 +1,21 @@
+server:
+  port: 8085
+
+spring:
+  application:
+    name: pointbank-quote-service
+  data:
+    redis:
+      host: ${QUOTE_REDIS_HOST:localhost}
+      port: ${QUOTE_REDIS_PORT:6379}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+pointbank:
+  quote:
+    ttl-seconds: ${QUOTE_TTL_SECONDS:10}
+    max-stale-seconds: ${QUOTE_MAX_STALE_SECONDS:10}

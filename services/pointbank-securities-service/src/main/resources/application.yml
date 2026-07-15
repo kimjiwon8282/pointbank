@@ -23,6 +23,8 @@ management:
         include: health,info
 
 pointbank:
+  quote:
+    base-url: ${QUOTE_SERVICE_URL:http://localhost:8085}
   ledger:
     base-url: ${LEDGER_SERVICE_BASE_URL:http://localhost:8084}
   sqs:

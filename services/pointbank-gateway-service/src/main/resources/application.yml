@@ -25,6 +25,10 @@ spring:
                 - Path=/api/securities/**
               filters:
                 - BankingAuthentication
+            - id: quote-service
+              uri: ${QUOTE_SERVICE_URL:http://localhost:8085}
+              predicates:
+                - Path=/api/quotes/**
           globalcors:
             cors-configurations:
               '[/**]':

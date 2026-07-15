@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.pointbank.securities.holding.mapper.SecuritiesHoldingMapper">
+    <resultMap id="holdingResultMap" type="com.pointbank.securities.holding.domain.SecuritiesHolding">
+        <id property="id" column="id"/>
+        <result property="securitiesAccountId" column="securities_account_id"/>
+        <result property="memberId" column="member_id"/>
+        <result property="stockCode" column="stock_code"/>
+        <result property="quantity" column="quantity"/>
+        <result property="reservedQuantity" column="reserved_quantity"/>
+        <result property="avgBuyPrice" column="avg_buy_price"/>
+        <result property="totalBuyAmount" column="total_buy_amount"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+
+    <sql id="holdingColumns">
+        id, securities_account_id, member_id, stock_code, quantity,
+        reserved_quantity, avg_buy_price, total_buy_amount, created_at, updated_at
+    </sql>
+
+    <select id="findByAccountIdAndStockCode" resultMap="holdingResultMap">
+        SELECT <include refid="holdingColumns"/>
+        FROM securities_holdings
+        WHERE securities_account_id = #{accountId}
+          AND stock_code = #{stockCode}
+    </select>
+
+    <select id="findByAccountIdAndStockCodeForUpdate" resultMap="holdingResultMap">
+        SELECT <include refid="holdingColumns"/>
+        FROM securities_holdings
+        WHERE securities_account_id = #{accountId}
+          AND stock_code = #{stockCode}
+        FOR UPDATE
+    </select>
+
+    <select id="findByMemberId" resultMap="holdingResultMap">
+        SELECT <include refid="holdingColumns"/>
+        FROM securities_holdings
+        WHERE member_id = #{memberId}
+        ORDER BY stock_code ASC
+    </select>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO securities_holdings (
+            securities_account_id, member_id, stock_code, quantity,
+            reserved_quantity, avg_buy_price, total_buy_amount
+        ) VALUES (
+            #{securitiesAccountId}, #{memberId}, #{stockCode}, #{quantity},
+            #{reservedQuantity}, #{avgBuyPrice}, #{totalBuyAmount}
+        )
+    </insert>
+
+    <update id="increaseBuyHolding">
+        UPDATE securities_holdings
+        SET quantity = quantity + #{quantityDelta},
+            total_buy_amount = total_buy_amount + #{buyAmountDelta},
+            avg_buy_price = #{avgBuyPrice}
+        WHERE id = #{id}
+    </update>
+
+    <update id="decreaseSellHolding">
+        UPDATE securities_holdings
+        SET quantity = quantity - #{quantityDelta},
+            total_buy_amount = #{totalBuyAmountAfter},
+            avg_buy_price = #{avgBuyPriceAfter}
+        WHERE id = #{id}
+          AND quantity - reserved_quantity &gt;= #{quantityDelta}
+    </update>
+
+    <delete id="deleteIfZeroQuantity">
+        DELETE FROM securities_holdings
+        WHERE id = #{id}
+          AND quantity = 0
+          AND reserved_quantity = 0
+    </delete>
+
+    <update id="updateAfterBuy">
+        UPDATE securities_holdings
+        SET quantity = #{quantity},
+            avg_buy_price = #{avgBuyPrice},
+            total_buy_amount = #{totalBuyAmount}
+        WHERE id = #{id}
+    </update>
+
+    <update id="updateAfterSell">
+        UPDATE securities_holdings
+        SET quantity = #{quantity},
+            avg_buy_price = #{avgBuyPrice},
+            total_buy_amount = #{totalBuyAmount}
+        WHERE id = #{id}
+    </update>
+</mapper>
