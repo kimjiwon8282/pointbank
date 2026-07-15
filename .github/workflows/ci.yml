@@ -1,0 +1,65 @@
+# CI: 코드가 push/PR 될 때마다 빌드 + 테스트를 자동으로 검증한다.
+# 목적 = "main/develop 은 항상 초록불(빌드·테스트 통과) 상태를 유지한다"
+# 이 파일이 통과해야 PR 을 머지할 수 있도록 나중에 브랜치 보호 규칙과 묶는다.
+name: CI
+
+# ── 언제 이 워크플로우가 도는가 ──────────────────────────────
+on:
+  # develop / main 을 target 으로 하는 PR 이 열리거나 갱신될 때
+  pull_request:
+    branches: [develop, main]
+  # develop / main 에 직접 커밋이 올라올 때(머지 포함)에도 한 번 더 검증.
+  # feature/** 도 추가해, PR 을 열기 전에도 내 브랜치에서 바로 CI 피드백을 받는다.
+  # (러너 시간을 더 아끼고 싶으면 나중에 feature/** 를 빼고 pull_request 트리거만 남기면 된다.
+  #  단, PR 열려 있는 상태에서 feature 에 push 하면 push+pull_request 가 겹쳐 2번 돌 수 있다.)
+  push:
+    branches: [develop, main, 'feature/**']
+
+# 같은 브랜치/PR 에서 새 커밋이 올라오면, 진행 중이던 이전 실행은 취소해
+# 러너 시간을 아낀다. (ref 단위로 그룹화)
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    name: Build & Test (JDK 21)
+    runs-on: ubuntu-latest   # 이 러너엔 Docker 가 이미 떠 있어 Testcontainers 가 그대로 동작한다
+
+    steps:
+      # 1) 레포 체크아웃 — 워크플로우가 우리 코드를 볼 수 있게 가져온다
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # 2) JDK 21 설치 (프로젝트 toolchain 과 동일 버전)
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      # 3) Gradle 세팅 + 빌드 캐시 활성화
+      #    setup-gradle 이 ~/.gradle 캐시(의존성·빌드 캐시)를 자동 저장/복원해
+      #    두 번째 실행부터 확연히 빨라진다.
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      # 4) 실행 권한 부여 (리눅스 러너에서 gradlew 실행 비트)
+      - name: Grant execute permission for gradlew
+        run: chmod +x ./gradlew
+
+      # 5) 전체 멀티모듈 빌드 + 테스트
+      #    build = compile + test + assemble. Testcontainers 통합테스트는
+      #    러너의 Docker 로 MySQL 컨테이너를 띄워 실행된다.
+      #    --no-daemon: CI 는 1회성 프로세스라 데몬을 띄울 이유가 없다.
+      - name: Build & Test
+        run: ./gradlew build --no-daemon
+
+      # 6) 실패했을 때만 테스트 리포트를 아티팩트로 올려서 원인 파악을 돕는다
+      - name: Upload test reports
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports
+          path: '**/build/reports/tests/'
+          retention-days: 7
