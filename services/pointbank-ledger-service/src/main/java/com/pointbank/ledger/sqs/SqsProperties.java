@@ -8,7 +8,11 @@ public record SqsProperties(
         String region,
         String ledgerCommandQueueUrl,
         String ledgerCommandDlqUrl,
+        String ledgerOrderCommandQueueUrl,
+        String ledgerOrderCommandDlqUrl,
         String securitiesResultQueueUrl,
-        String securitiesResultDlqUrl
+        String securitiesResultDlqUrl,
+        String securitiesOrderResultQueueUrl,
+        String securitiesOrderResultDlqUrl
 ) {
 }

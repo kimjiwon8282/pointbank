@@ -94,7 +94,7 @@ public class BuyOrderAcceptanceService {
             case REQUESTED -> toResponse(order, stockName, "Buy order already accepted.");
             case COMPLETED -> toResponse(order, stockName, "Buy order already completed.");
             case FUNDS_COMPLETED -> throw new CustomException(ErrorCode.ORDER_IN_PROGRESS);
-            case FAILED -> throw new CustomException(ErrorCode.ORDER_FAILED);
+            case FAILED, CANCELED, REVERSED -> throw new CustomException(ErrorCode.ORDER_FAILED);
             case MANUAL_REVIEW -> throw new CustomException(ErrorCode.ORDER_MANUAL_REVIEW_REQUIRED);
         };
     }

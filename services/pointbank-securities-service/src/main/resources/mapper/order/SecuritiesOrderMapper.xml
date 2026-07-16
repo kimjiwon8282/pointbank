@@ -50,6 +50,13 @@
         WHERE order_no = #{orderNo}
     </select>
 
+    <select id="findByOrderNoForUpdate" resultMap="orderResultMap">
+        SELECT <include refid="orderColumns"/>
+        FROM securities_orders
+        WHERE order_no = #{orderNo}
+        FOR UPDATE
+    </select>
+
     <select id="findByMemberIdAndIdempotencyKey" resultMap="orderResultMap">
         SELECT <include refid="orderColumns"/>
         FROM securities_orders
@@ -91,6 +98,24 @@
         UPDATE securities_orders
         SET status = 'MANUAL_REVIEW',
             failure_reason = #{failureReason}
+        WHERE id = #{id}
+          AND status IN ('REQUESTED', 'FUNDS_COMPLETED', 'COMPLETED', 'FAILED', 'CANCELED')
+    </update>
+
+    <update id="markCanceled">
+        UPDATE securities_orders
+        SET status = 'CANCELED',
+            failure_reason = #{failureReason},
+            completed_at = CURRENT_TIMESTAMP(6)
+        WHERE id = #{id}
+          AND status IN ('REQUESTED', 'FAILED')
+    </update>
+
+    <update id="markReversed">
+        UPDATE securities_orders
+        SET status = 'REVERSED',
+            failure_reason = #{failureReason},
+            completed_at = #{completedAt}
         WHERE id = #{id}
           AND status IN ('REQUESTED', 'FUNDS_COMPLETED')
     </update>

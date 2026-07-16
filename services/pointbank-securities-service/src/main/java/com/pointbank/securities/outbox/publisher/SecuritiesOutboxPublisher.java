@@ -1,6 +1,7 @@
 package com.pointbank.securities.outbox.publisher;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.pointbank.securities.event.BuyOrderRequestedEvent;
 import com.pointbank.securities.event.CashAccountCreateRequestedEvent;
 import com.pointbank.securities.event.SecuritiesEventType;
 import com.pointbank.securities.outbox.domain.OutboxEvent;
@@ -28,22 +29,21 @@ public class SecuritiesOutboxPublisher {
 
     @Scheduled(fixedDelay = 2000)
     public void publishPendingEvents() {
-        for (OutboxEvent event : outboxEventMapper.findPendingByEventType(
-                SecuritiesEventType.CASH_ACCOUNT_CREATE_REQUESTED,
-                BATCH_SIZE
-        )) {
-            publish(event);
-        }
+        publishPendingEvents(SecuritiesEventType.CASH_ACCOUNT_CREATE_REQUESTED);
+        publishPendingEvents(SecuritiesEventType.BUY_ORDER_REQUESTED);
+    }
+
+    private void publishPendingEvents(String eventType) {
+        outboxEventMapper.findPendingByEventType(eventType, BATCH_SIZE).forEach(this::publish);
     }
 
     private void publish(OutboxEvent outboxEvent) {
         try {
-            CashAccountCreateRequestedEvent event =
-                    objectMapper.readValue(outboxEvent.getPayload(), CashAccountCreateRequestedEvent.class);
+            PublishDestination destination = resolveDestination(outboxEvent);
             sqsClient.sendMessage(SendMessageRequest.builder()
-                    .queueUrl(sqsProperties.ledgerCommandQueueUrl())
+                    .queueUrl(destination.queueUrl())
                     .messageBody(outboxEvent.getPayload())
-                    .messageGroupId(String.valueOf(event.securitiesAccountId()))
+                    .messageGroupId(destination.messageGroupId())
                     .messageDeduplicationId(outboxEvent.getEventId())
                     .build());
             outboxEventMapper.markPublished(outboxEvent.getEventId());
@@ -55,5 +55,28 @@ public class SecuritiesOutboxPublisher {
             }
             outboxEventMapper.incrementRetryCount(outboxEvent.getEventId());
         }
+    }
+
+    private PublishDestination resolveDestination(OutboxEvent outboxEvent) throws Exception {
+        if (SecuritiesEventType.CASH_ACCOUNT_CREATE_REQUESTED.equals(outboxEvent.getEventType())) {
+            CashAccountCreateRequestedEvent event =
+                    objectMapper.readValue(outboxEvent.getPayload(), CashAccountCreateRequestedEvent.class);
+            return new PublishDestination(
+                    sqsProperties.ledgerCommandQueueUrl(),
+                    String.valueOf(event.securitiesAccountId())
+            );
+        }
+        if (SecuritiesEventType.BUY_ORDER_REQUESTED.equals(outboxEvent.getEventType())) {
+            BuyOrderRequestedEvent event =
+                    objectMapper.readValue(outboxEvent.getPayload(), BuyOrderRequestedEvent.class);
+            return new PublishDestination(
+                    sqsProperties.ledgerOrderCommandQueueUrl(),
+                    String.valueOf(event.memberId())
+            );
+        }
+        throw new IllegalArgumentException("Unsupported securities outbox event type: " + outboxEvent.getEventType());
+    }
+
+    private record PublishDestination(String queueUrl, String messageGroupId) {
     }
 }

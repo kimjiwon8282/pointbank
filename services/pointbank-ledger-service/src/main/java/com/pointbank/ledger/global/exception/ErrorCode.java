@@ -13,6 +13,11 @@ public enum ErrorCode {
     CANNOT_TRANSFER_TO_SELF(HttpStatus.BAD_REQUEST, "CANNOT_TRANSFER_TO_SELF", "본인 계좌로 송금할 수 없습니다."),
     IDEMPOTENCY_KEY_CONFLICT(HttpStatus.CONFLICT, "IDEMPOTENCY_KEY_CONFLICT", "이미 다른 요청으로 사용된 멱등키입니다."),
     FUND_TRANSFER_IN_PROGRESS(HttpStatus.CONFLICT, "FUND_TRANSFER_IN_PROGRESS", "자금 이동 요청이 처리 중입니다."),
+    BUY_REVERSAL_NOT_ALLOWED(
+            HttpStatus.CONFLICT,
+            "BUY_REVERSAL_NOT_ALLOWED",
+            "The original securities buy debit is not eligible for reversal."
+    ),
     SECURITIES_CASH_ACCOUNT_NOT_FOUND(
             HttpStatus.NOT_FOUND,
             "SECURITIES_CASH_ACCOUNT_NOT_FOUND",

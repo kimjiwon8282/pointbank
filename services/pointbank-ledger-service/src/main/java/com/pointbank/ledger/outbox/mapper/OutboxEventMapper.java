@@ -13,4 +13,13 @@ public interface OutboxEventMapper {
     int markPublished(@Param("eventId") String eventId);
     int markFailed(@Param("eventId") String eventId);
     int incrementRetryCount(@Param("eventId") String eventId);
+    boolean existsByEventTypeAndOrderNo(
+            @Param("eventType") String eventType,
+            @Param("orderNo") String orderNo
+    );
+    boolean existsByEventTypeOrderNoAndReasonCode(
+            @Param("eventType") String eventType,
+            @Param("orderNo") String orderNo,
+            @Param("reasonCode") String reasonCode
+    );
 }

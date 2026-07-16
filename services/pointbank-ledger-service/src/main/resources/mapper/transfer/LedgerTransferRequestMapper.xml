@@ -43,6 +43,13 @@
         WHERE request_no = #{requestNo}
     </select>
 
+    <select id="findByRequestNoForUpdate" resultMap="ledgerTransferRequestResultMap">
+        SELECT <include refid="ledgerTransferRequestColumns"/>
+        FROM ledger_transfer_requests
+        WHERE request_no = #{requestNo}
+        FOR UPDATE
+    </select>
+
     <update id="complete">
         UPDATE ledger_transfer_requests
         SET source_balance_after = #{sourceBalanceAfter},

@@ -11,6 +11,7 @@ import java.util.Optional;
 public interface LedgerTransferRequestMapper {
     int insertRequested(LedgerTransferRequest request);
     Optional<LedgerTransferRequest> findByRequestNo(String requestNo);
+    Optional<LedgerTransferRequest> findByRequestNoForUpdate(String requestNo);
     int complete(
             @Param("id") Long id,
             @Param("sourceBalanceAfter") Long sourceBalanceAfter,

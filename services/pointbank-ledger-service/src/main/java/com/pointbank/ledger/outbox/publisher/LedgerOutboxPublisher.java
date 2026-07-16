@@ -1,6 +1,8 @@
 package com.pointbank.ledger.outbox.publisher;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.pointbank.ledger.event.BuyFundsDebitedEvent;
+import com.pointbank.ledger.event.BuyFundsFailedEvent;
 import com.pointbank.ledger.event.CashAccountCreatedEvent;
 import com.pointbank.ledger.event.LedgerEventType;
 import com.pointbank.ledger.outbox.domain.OutboxEvent;
@@ -28,22 +30,22 @@ public class LedgerOutboxPublisher {
 
     @Scheduled(fixedDelay = 2000)
     public void publishPendingEvents() {
-        for (OutboxEvent event : outboxEventMapper.findPendingByEventType(
-                LedgerEventType.CASH_ACCOUNT_CREATED,
-                BATCH_SIZE
-        )) {
-            publish(event);
-        }
+        publishPendingEvents(LedgerEventType.CASH_ACCOUNT_CREATED);
+        publishPendingEvents(LedgerEventType.BUY_FUNDS_DEBITED);
+        publishPendingEvents(LedgerEventType.BUY_FUNDS_FAILED);
+    }
+
+    private void publishPendingEvents(String eventType) {
+        outboxEventMapper.findPendingByEventType(eventType, BATCH_SIZE).forEach(this::publish);
     }
 
     private void publish(OutboxEvent outboxEvent) {
         try {
-            CashAccountCreatedEvent event =
-                    objectMapper.readValue(outboxEvent.getPayload(), CashAccountCreatedEvent.class);
+            PublishDestination destination = resolveDestination(outboxEvent);
             sqsClient.sendMessage(SendMessageRequest.builder()
-                    .queueUrl(sqsProperties.securitiesResultQueueUrl())
+                    .queueUrl(destination.queueUrl())
                     .messageBody(outboxEvent.getPayload())
-                    .messageGroupId(String.valueOf(event.securitiesAccountId()))
+                    .messageGroupId(destination.messageGroupId())
                     .messageDeduplicationId(outboxEvent.getEventId())
                     .build());
             outboxEventMapper.markPublished(outboxEvent.getEventId());
@@ -55,5 +57,36 @@ public class LedgerOutboxPublisher {
             }
             outboxEventMapper.incrementRetryCount(outboxEvent.getEventId());
         }
+    }
+
+    private PublishDestination resolveDestination(OutboxEvent outboxEvent) throws Exception {
+        if (LedgerEventType.CASH_ACCOUNT_CREATED.equals(outboxEvent.getEventType())) {
+            CashAccountCreatedEvent event =
+                    objectMapper.readValue(outboxEvent.getPayload(), CashAccountCreatedEvent.class);
+            return new PublishDestination(
+                    sqsProperties.securitiesResultQueueUrl(),
+                    String.valueOf(event.securitiesAccountId())
+            );
+        }
+        if (LedgerEventType.BUY_FUNDS_DEBITED.equals(outboxEvent.getEventType())) {
+            BuyFundsDebitedEvent event =
+                    objectMapper.readValue(outboxEvent.getPayload(), BuyFundsDebitedEvent.class);
+            return new PublishDestination(
+                    sqsProperties.securitiesOrderResultQueueUrl(),
+                    String.valueOf(event.memberId())
+            );
+        }
+        if (LedgerEventType.BUY_FUNDS_FAILED.equals(outboxEvent.getEventType())) {
+            BuyFundsFailedEvent event =
+                    objectMapper.readValue(outboxEvent.getPayload(), BuyFundsFailedEvent.class);
+            return new PublishDestination(
+                    sqsProperties.securitiesOrderResultQueueUrl(),
+                    String.valueOf(event.memberId())
+            );
+        }
+        throw new IllegalArgumentException("Unsupported ledger outbox event type: " + outboxEvent.getEventType());
+    }
+
+    private record PublishDestination(String queueUrl, String messageGroupId) {
     }
 }

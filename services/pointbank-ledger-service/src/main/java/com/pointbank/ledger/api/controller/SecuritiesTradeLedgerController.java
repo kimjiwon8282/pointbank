@@ -1,5 +1,7 @@
 package com.pointbank.ledger.api.controller;
 
+import com.pointbank.ledger.api.dto.BuyOrderReversalRequest;
+import com.pointbank.ledger.api.dto.BuyOrderReversalResponse;
 import com.pointbank.ledger.api.dto.SecuritiesBuyDebitRequest;
 import com.pointbank.ledger.api.dto.SecuritiesSellCreditRequest;
 import com.pointbank.ledger.api.dto.SecuritiesTradeFundsResponse;
@@ -29,6 +31,15 @@ public class SecuritiesTradeLedgerController {
         return ApiResponse.success(
                 "Securities buy funds debited.",
                 securitiesTradeLedgerService.debitBuyFunds(idempotencyKey, request));
+    }
+
+    @PostMapping("/buy/reversal")
+    public ApiResponse<BuyOrderReversalResponse> reverseBuyFunds(
+            @Valid @RequestBody BuyOrderReversalRequest request
+    ) {
+        return ApiResponse.success(
+                "Securities buy funds reversed.",
+                securitiesTradeLedgerService.reverseBuyFunds(request));
     }
 
     @PostMapping("/sell/credit")

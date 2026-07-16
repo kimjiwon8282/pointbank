@@ -5,5 +5,7 @@ public enum OrderStatus {
     FUNDS_COMPLETED,
     COMPLETED,
     FAILED,
-    MANUAL_REVIEW
+    MANUAL_REVIEW,
+    CANCELED,
+    REVERSED
 }

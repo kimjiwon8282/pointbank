@@ -13,6 +13,7 @@ import java.util.Optional;
 public interface SecuritiesOrderMapper {
     int insertRequested(SecuritiesOrder order);
     Optional<SecuritiesOrder> findByOrderNo(String orderNo);
+    Optional<SecuritiesOrder> findByOrderNoForUpdate(String orderNo);
     Optional<SecuritiesOrder> findByMemberIdAndIdempotencyKey(
             @Param("memberId") Long memberId,
             @Param("idempotencyKey") String idempotencyKey
@@ -22,6 +23,12 @@ public interface SecuritiesOrderMapper {
     int markCompleted(@Param("id") Long id, @Param("completedAt") LocalDateTime completedAt);
     int markFailed(@Param("id") Long id, @Param("failureReason") String failureReason);
     int markManualReview(@Param("id") Long id, @Param("failureReason") String failureReason);
+    int markCanceled(@Param("id") Long id, @Param("failureReason") String failureReason);
+    int markReversed(
+            @Param("id") Long id,
+            @Param("failureReason") String failureReason,
+            @Param("completedAt") LocalDateTime completedAt
+    );
     List<SecuritiesOrder> findOrdersByMemberIdOrderByCreatedAtDesc(
             @Param("memberId") Long memberId,
             @Param("limit") int limit

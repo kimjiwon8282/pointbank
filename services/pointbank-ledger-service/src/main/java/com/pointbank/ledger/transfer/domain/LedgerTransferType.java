@@ -5,5 +5,6 @@ public enum LedgerTransferType {
     BANK_TO_BANK,
     BANK_TO_SECURITIES_CASH,
     SECURITIES_BUY,
+    SECURITIES_BUY_REVERSAL,
     SECURITIES_SELL
 }

@@ -60,7 +60,10 @@ CREATE TABLE IF NOT EXISTS securities_orders (
     CONSTRAINT uk_securities_orders_member_id_idempotency_key UNIQUE (member_id, idempotency_key),
     CONSTRAINT chk_securities_orders_side CHECK (order_side IN ('BUY', 'SELL')),
     CONSTRAINT chk_securities_orders_status
-        CHECK (status IN ('REQUESTED', 'FUNDS_COMPLETED', 'COMPLETED', 'FAILED', 'MANUAL_REVIEW')),
+        CHECK (status IN (
+            'REQUESTED', 'FUNDS_COMPLETED', 'COMPLETED', 'FAILED',
+            'MANUAL_REVIEW', 'CANCELED', 'REVERSED'
+        )),
     CONSTRAINT chk_securities_orders_quantity_positive CHECK (quantity > 0),
     CONSTRAINT chk_securities_orders_price_positive CHECK (order_price > 0),
     CONSTRAINT chk_securities_orders_amount_positive CHECK (order_amount > 0),

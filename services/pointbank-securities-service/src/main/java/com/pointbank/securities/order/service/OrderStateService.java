@@ -11,6 +11,7 @@ import com.pointbank.securities.global.exception.CustomException;
 import com.pointbank.securities.global.exception.ErrorCode;
 import com.pointbank.securities.holding.domain.SecuritiesHolding;
 import com.pointbank.securities.holding.mapper.SecuritiesHoldingMapper;
+import com.pointbank.securities.order.domain.OrderStatus;
 import com.pointbank.securities.order.domain.SecuritiesOrder;
 import com.pointbank.securities.order.mapper.SecuritiesOrderMapper;
 import com.pointbank.securities.outbox.domain.OutboxEvent;
@@ -96,6 +97,46 @@ public class OrderStateService {
         if (orderMapper.markManualReview(orderId, truncateReason(failureReason)) != 1) {
             throw new CustomException(ErrorCode.INTERNAL_SERVER_ERROR);
         }
+    }
+
+    public SecuritiesOrder findOrderForResultProcessing(String orderNo) {
+        if (orderNo == null || orderNo.isBlank()) {
+            throw new CustomException(ErrorCode.INTERNAL_SERVER_ERROR);
+        }
+        return orderMapper.findByOrderNoForUpdate(orderNo)
+                .orElseThrow(() -> new CustomException(ErrorCode.INTERNAL_SERVER_ERROR));
+    }
+
+    @Transactional
+    public SecuritiesExecution completeBuyOrderFromFundsDebited(SecuritiesOrder order) {
+        if (order.getStatus() == OrderStatus.REQUESTED) {
+            markFundsCompleted(order.getId());
+        }
+        return completeBuyOrder(order, LocalDateTime.now());
+    }
+
+    @Transactional
+    public void failBuyOrderFromFundsFailed(SecuritiesOrder order, String failureReason) {
+        markFailed(order.getId(), failureReason);
+    }
+
+    @Transactional
+    public void cancelOrderFromDlq(SecuritiesOrder order, String reason) {
+        if (orderMapper.markCanceled(order.getId(), truncateReason(reason)) != 1) {
+            throw new CustomException(ErrorCode.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    @Transactional
+    public void reverseOrderAfterCompensation(SecuritiesOrder order, String reason) {
+        if (orderMapper.markReversed(order.getId(), truncateReason(reason), LocalDateTime.now()) != 1) {
+            throw new CustomException(ErrorCode.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    @Transactional
+    public void markManualReviewAfterCompensationFailure(SecuritiesOrder order, String reason) {
+        markManualReview(order.getId(), reason);
     }
 
     @Transactional

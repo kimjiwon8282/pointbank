@@ -35,6 +35,23 @@
         LIMIT #{limit}
     </select>
 
+    <select id="existsByEventTypeAndOrderNo" resultType="boolean">
+        SELECT COUNT(*) &gt; 0
+        FROM outbox_events
+        WHERE event_type = #{eventType}
+          AND status IN ('PENDING', 'PUBLISHED')
+          AND payload LIKE CONCAT(CONCAT('%"orderNo":"', #{orderNo}), '"%')
+    </select>
+
+    <select id="existsByEventTypeOrderNoAndReasonCode" resultType="boolean">
+        SELECT COUNT(*) &gt; 0
+        FROM outbox_events
+        WHERE event_type = #{eventType}
+          AND status IN ('PENDING', 'PUBLISHED')
+          AND payload LIKE CONCAT(CONCAT('%"orderNo":"', #{orderNo}), '"%')
+          AND payload LIKE CONCAT(CONCAT('%"reasonCode":"', #{reasonCode}), '"%')
+    </select>
+
     <update id="markPublished">
         UPDATE outbox_events
         SET status = 'PUBLISHED', published_at = CURRENT_TIMESTAMP(6)
