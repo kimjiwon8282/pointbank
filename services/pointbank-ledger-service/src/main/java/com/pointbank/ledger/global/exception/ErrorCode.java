@@ -18,6 +18,11 @@ public enum ErrorCode {
             "BUY_REVERSAL_NOT_ALLOWED",
             "The original securities buy debit is not eligible for reversal."
     ),
+    SELL_REVERSAL_NOT_ALLOWED(
+            HttpStatus.CONFLICT,
+            "SELL_REVERSAL_NOT_ALLOWED",
+            "The original securities sell credit is not eligible for reversal."
+    ),
     SECURITIES_CASH_ACCOUNT_NOT_FOUND(
             HttpStatus.NOT_FOUND,
             "SECURITIES_CASH_ACCOUNT_NOT_FOUND",

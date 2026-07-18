@@ -8,5 +8,6 @@ public enum LedgerEntryType {
     SECURITIES_DEPOSIT_IN,
     STOCK_BUY,
     STOCK_BUY_REVERSAL,
-    STOCK_SELL
+    STOCK_SELL,
+    STOCK_SELL_REVERSAL
 }

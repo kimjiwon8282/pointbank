@@ -1,8 +1,10 @@
 package com.pointbank.ledger.message.consumer;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.pointbank.ledger.event.BuyOrderRequestedEvent;
 import com.pointbank.ledger.event.LedgerEventType;
+import com.pointbank.ledger.event.SellOrderRequestedEvent;
 import com.pointbank.ledger.sqs.SqsProperties;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
@@ -37,12 +39,15 @@ public class LedgerOrderCommandConsumer {
 
     private void handle(Message message) {
         try {
-            BuyOrderRequestedEvent event =
-                    objectMapper.readValue(message.body(), BuyOrderRequestedEvent.class);
-            if (!LedgerEventType.BUY_ORDER_REQUESTED.equals(event.eventType())) {
-                throw new IllegalArgumentException("Unsupported event type: " + event.eventType());
+            JsonNode body = objectMapper.readTree(message.body());
+            String eventType = body.path("eventType").asText(null);
+            if (LedgerEventType.BUY_ORDER_REQUESTED.equals(eventType)) {
+                ledgerOrderCommandHandler.handle(objectMapper.treeToValue(body, BuyOrderRequestedEvent.class));
+            } else if (LedgerEventType.SELL_ORDER_REQUESTED.equals(eventType)) {
+                ledgerOrderCommandHandler.handle(objectMapper.treeToValue(body, SellOrderRequestedEvent.class));
+            } else {
+                throw new IllegalArgumentException("Unsupported event type: " + eventType);
             }
-            ledgerOrderCommandHandler.handle(event);
             sqsClient.deleteMessage(DeleteMessageRequest.builder()
                     .queueUrl(sqsProperties.ledgerOrderCommandQueueUrl())
                     .receiptHandle(message.receiptHandle())

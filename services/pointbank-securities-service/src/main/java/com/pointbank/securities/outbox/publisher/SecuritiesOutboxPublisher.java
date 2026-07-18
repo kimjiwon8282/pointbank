@@ -3,6 +3,7 @@ package com.pointbank.securities.outbox.publisher;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.pointbank.securities.event.BuyOrderRequestedEvent;
 import com.pointbank.securities.event.CashAccountCreateRequestedEvent;
+import com.pointbank.securities.event.SellOrderRequestedEvent;
 import com.pointbank.securities.event.SecuritiesEventType;
 import com.pointbank.securities.outbox.domain.OutboxEvent;
 import com.pointbank.securities.outbox.mapper.OutboxEventMapper;
@@ -31,6 +32,7 @@ public class SecuritiesOutboxPublisher {
     public void publishPendingEvents() {
         publishPendingEvents(SecuritiesEventType.CASH_ACCOUNT_CREATE_REQUESTED);
         publishPendingEvents(SecuritiesEventType.BUY_ORDER_REQUESTED);
+        publishPendingEvents(SecuritiesEventType.SELL_ORDER_REQUESTED);
     }
 
     private void publishPendingEvents(String eventType) {
@@ -69,6 +71,14 @@ public class SecuritiesOutboxPublisher {
         if (SecuritiesEventType.BUY_ORDER_REQUESTED.equals(outboxEvent.getEventType())) {
             BuyOrderRequestedEvent event =
                     objectMapper.readValue(outboxEvent.getPayload(), BuyOrderRequestedEvent.class);
+            return new PublishDestination(
+                    sqsProperties.ledgerOrderCommandQueueUrl(),
+                    String.valueOf(event.memberId())
+            );
+        }
+        if (SecuritiesEventType.SELL_ORDER_REQUESTED.equals(outboxEvent.getEventType())) {
+            SellOrderRequestedEvent event =
+                    objectMapper.readValue(outboxEvent.getPayload(), SellOrderRequestedEvent.class);
             return new PublishDestination(
                     sqsProperties.ledgerOrderCommandQueueUrl(),
                     String.valueOf(event.memberId())

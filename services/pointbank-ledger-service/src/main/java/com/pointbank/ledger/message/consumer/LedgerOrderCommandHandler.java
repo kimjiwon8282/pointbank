@@ -9,6 +9,10 @@ import com.pointbank.ledger.event.BuyFundsDebitedEvent;
 import com.pointbank.ledger.event.BuyFundsFailedEvent;
 import com.pointbank.ledger.event.BuyOrderRequestedEvent;
 import com.pointbank.ledger.event.LedgerEventType;
+import com.pointbank.ledger.event.SellFundsCreditedEvent;
+import com.pointbank.ledger.event.SellFundsFailedEvent;
+import com.pointbank.ledger.event.SellOrderRequestedEvent;
+import com.pointbank.ledger.api.dto.SecuritiesSellCreditRequest;
 import com.pointbank.ledger.global.exception.CustomException;
 import com.pointbank.ledger.global.exception.ErrorCode;
 import com.pointbank.ledger.message.mapper.ProcessedMessageMapper;
@@ -41,6 +45,54 @@ public class LedgerOrderCommandHandler {
             }
             transactionTemplate().executeWithoutResult(status -> recordFailure(event, exception));
         }
+    }
+
+    public void handle(SellOrderRequestedEvent event) {
+        try {
+            transactionTemplate().executeWithoutResult(status -> creditAndRecordSuccess(event));
+        } catch (CustomException exception) {
+            if (!isBusinessFailure(exception)) throw exception;
+            transactionTemplate().executeWithoutResult(status -> recordFailure(event, exception));
+        }
+    }
+
+    private void creditAndRecordSuccess(SellOrderRequestedEvent event) {
+        if (processedMessageMapper.existsByEventId(event.eventId())) return;
+        SecuritiesTradeFundsResponse response = securitiesTradeLedgerService.creditSellFunds(
+                event.orderNo(),
+                new SecuritiesSellCreditRequest(
+                        event.memberId(), event.orderNo(), event.stockCode(), event.orderAmount(),
+                        event.fee(), event.tax(), event.totalAmount()));
+        outboxEventMapper.insert(createCreditedOutboxEvent(event, response));
+        processedMessageMapper.insert(event.eventId(), event.eventType());
+    }
+
+    private void recordFailure(SellOrderRequestedEvent event, CustomException exception) {
+        if (processedMessageMapper.existsByEventId(event.eventId())) return;
+        outboxEventMapper.insert(createFailedOutboxEvent(event, exception.getErrorCode()));
+        processedMessageMapper.insert(event.eventId(), event.eventType());
+    }
+
+    private OutboxEvent createCreditedOutboxEvent(
+            SellOrderRequestedEvent source, SecuritiesTradeFundsResponse response) {
+        String eventId = UUID.randomUUID().toString();
+        SellFundsCreditedEvent event = new SellFundsCreditedEvent(
+                eventId, LedgerEventType.SELL_FUNDS_CREDITED, source.orderNo(), source.memberId(),
+                source.securitiesAccountId(), source.stockCode(), source.stockName(), source.quantity(),
+                source.orderPrice(), source.orderAmount(), source.fee(), source.tax(), source.totalAmount(),
+                source.quoteObservedAt(), response.requestNo(), response.balanceAfter());
+        return createOutboxEvent(
+                eventId, LedgerEventType.SELL_FUNDS_CREDITED, source.securitiesAccountId(), event);
+    }
+
+    private OutboxEvent createFailedOutboxEvent(SellOrderRequestedEvent source, ErrorCode errorCode) {
+        String eventId = UUID.randomUUID().toString();
+        SellFundsFailedEvent event = new SellFundsFailedEvent(
+                eventId, LedgerEventType.SELL_FUNDS_FAILED, source.orderNo(), source.memberId(),
+                source.securitiesAccountId(), source.stockCode(), source.stockName(),
+                errorCode.getCode(), errorCode.getMessage());
+        return createOutboxEvent(
+                eventId, LedgerEventType.SELL_FUNDS_FAILED, source.securitiesAccountId(), event);
     }
 
     private void debitAndRecordSuccess(BuyOrderRequestedEvent event) {

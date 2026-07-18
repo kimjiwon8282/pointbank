@@ -3,6 +3,8 @@ package com.pointbank.securities.message.consumer;
 import com.pointbank.securities.event.BuyFundsDebitedEvent;
 import com.pointbank.securities.event.BuyFundsFailedEvent;
 import com.pointbank.securities.event.SecuritiesEventType;
+import com.pointbank.securities.event.SellFundsCreditedEvent;
+import com.pointbank.securities.event.SellFundsFailedEvent;
 import com.pointbank.securities.message.mapper.ProcessedMessageMapper;
 import com.pointbank.securities.order.domain.OrderSide;
 import com.pointbank.securities.order.domain.OrderStatus;
@@ -92,6 +94,58 @@ public class SecuritiesOrderResultHandler {
         }
     }
 
+    @Transactional
+    public void handle(SellFundsCreditedEvent event) {
+        validateEvent(event.eventId(), event.eventType(), SecuritiesEventType.SELL_FUNDS_CREDITED);
+        if (processedMessageMapper.existsByEventId(event.eventId())) return;
+        SecuritiesOrder order = orderStateService.findOrderForResultProcessing(event.orderNo());
+        if (!matches(order, event)) {
+            completeAsManualReview(order, event.eventId(), event.eventType(),
+                    RESULT_CONFLICT_PREFIX + "SELL_FUNDS_CREDITED payload does not match the order.");
+            return;
+        }
+        switch (order.getStatus()) {
+            case COMPLETED -> recordProcessed(event.eventId(), event.eventType());
+            case FAILED, CANCELED -> completeAsManualReview(
+                    order, event.eventId(), event.eventType(),
+                    RESULT_CONFLICT_PREFIX + "Sell funds were credited after order termination.");
+            case MANUAL_REVIEW, REVERSED -> recordProcessed(event.eventId(), event.eventType());
+            case REQUESTED, FUNDS_COMPLETED -> {
+                orderStateService.completeSellOrderFromFundsCredited(order);
+                recordProcessed(event.eventId(), event.eventType());
+            }
+        }
+    }
+
+    @Transactional
+    public void handle(SellFundsFailedEvent event) {
+        validateEvent(event.eventId(), event.eventType(), SecuritiesEventType.SELL_FUNDS_FAILED);
+        if (processedMessageMapper.existsByEventId(event.eventId())) return;
+        SecuritiesOrder order = orderStateService.findOrderForResultProcessing(event.orderNo());
+        if (!matches(order, event)) {
+            completeAsManualReview(order, event.eventId(), event.eventType(),
+                    RESULT_CONFLICT_PREFIX + "SELL_FUNDS_FAILED payload does not match the order.");
+            return;
+        }
+        String reason = failureReason(event.reasonCode(), event.reasonMessage());
+        boolean cancelFromDlq = LEDGER_ORDER_COMMAND_DLQ.equals(event.reasonCode());
+        switch (order.getStatus()) {
+            case REQUESTED -> {
+                if (cancelFromDlq) orderStateService.cancelSellOrderFromDlq(order, reason);
+                else orderStateService.failSellOrderFromFundsFailed(order, reason);
+                recordProcessed(event.eventId(), event.eventType());
+            }
+            case FAILED -> {
+                if (cancelFromDlq) orderStateService.cancelOrderFromDlq(order, reason);
+                recordProcessed(event.eventId(), event.eventType());
+            }
+            case MANUAL_REVIEW, CANCELED, REVERSED -> recordProcessed(event.eventId(), event.eventType());
+            case FUNDS_COMPLETED, COMPLETED -> completeAsManualReview(
+                    order, event.eventId(), event.eventType(),
+                    RESULT_CONFLICT_PREFIX + "Sell funds failure arrived after credit. " + reason);
+        }
+    }
+
     private boolean matches(SecuritiesOrder order, BuyFundsDebitedEvent event) {
         return order.getOrderSide() == OrderSide.BUY
                 && Objects.equals(order.getMemberId(), event.memberId())
@@ -107,6 +161,25 @@ public class SecuritiesOrderResultHandler {
 
     private boolean matches(SecuritiesOrder order, BuyFundsFailedEvent event) {
         return order.getOrderSide() == OrderSide.BUY
+                && Objects.equals(order.getMemberId(), event.memberId())
+                && Objects.equals(order.getSecuritiesAccountId(), event.securitiesAccountId())
+                && Objects.equals(order.getStockCode(), event.stockCode());
+    }
+
+    private boolean matches(SecuritiesOrder order, SellFundsCreditedEvent event) {
+        return order.getOrderSide() == OrderSide.SELL
+                && Objects.equals(order.getMemberId(), event.memberId())
+                && Objects.equals(order.getSecuritiesAccountId(), event.securitiesAccountId())
+                && Objects.equals(order.getStockCode(), event.stockCode())
+                && order.getQuantity() == event.quantity()
+                && order.getOrderPrice() == event.orderPrice()
+                && order.getOrderAmount() == event.orderAmount()
+                && order.getFee() == event.fee() && order.getTax() == event.tax()
+                && order.getTotalAmount() == event.totalAmount();
+    }
+
+    private boolean matches(SecuritiesOrder order, SellFundsFailedEvent event) {
+        return order.getOrderSide() == OrderSide.SELL
                 && Objects.equals(order.getMemberId(), event.memberId())
                 && Objects.equals(order.getSecuritiesAccountId(), event.securitiesAccountId())
                 && Objects.equals(order.getStockCode(), event.stockCode());

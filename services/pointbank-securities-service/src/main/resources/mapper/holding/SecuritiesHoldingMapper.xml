@@ -92,4 +92,29 @@
             total_buy_amount = #{totalBuyAmount}
         WHERE id = #{id}
     </update>
+
+    <update id="reserveSellQuantity">
+        UPDATE securities_holdings
+        SET reserved_quantity = reserved_quantity + #{quantity}
+        WHERE id = #{id}
+          AND quantity - reserved_quantity &gt;= #{quantity}
+    </update>
+
+    <update id="releaseSellReservation">
+        UPDATE securities_holdings
+        SET reserved_quantity = reserved_quantity - #{quantity}
+        WHERE id = #{id}
+          AND reserved_quantity &gt;= #{quantity}
+    </update>
+
+    <update id="completeReservedSell">
+        UPDATE securities_holdings
+        SET quantity = #{quantityAfter},
+            reserved_quantity = #{reservedQuantityAfter},
+            avg_buy_price = #{avgBuyPriceAfter},
+            total_buy_amount = #{totalBuyAmountAfter}
+        WHERE id = #{id}
+          AND quantity &gt;= #{quantity}
+          AND reserved_quantity &gt;= #{quantity}
+    </update>
 </mapper>

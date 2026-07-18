@@ -15,4 +15,10 @@ public class OrderNoGenerator {
         String randomSuffix = UUID.randomUUID().toString().replace("-", "").substring(0, 12);
         return "ORD-BUY-" + timestamp + "-" + randomSuffix;
     }
+
+    public String generateSellOrderNo() {
+        String timestamp = LocalDateTime.now().format(TIMESTAMP_FORMAT);
+        String randomSuffix = UUID.randomUUID().toString().replace("-", "").substring(0, 12);
+        return "ORD-SELL-" + timestamp + "-" + randomSuffix;
+    }
 }

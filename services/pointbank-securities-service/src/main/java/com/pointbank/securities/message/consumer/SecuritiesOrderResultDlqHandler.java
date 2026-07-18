@@ -2,10 +2,14 @@ package com.pointbank.securities.message.consumer;
 
 import com.pointbank.securities.event.BuyFundsDebitedEvent;
 import com.pointbank.securities.event.BuyFundsFailedEvent;
+import com.pointbank.securities.event.SellFundsCreditedEvent;
+import com.pointbank.securities.event.SellFundsFailedEvent;
 import com.pointbank.securities.global.exception.CustomException;
 import com.pointbank.securities.infrastructure.ledger.LedgerBuyReversalRequest;
 import com.pointbank.securities.infrastructure.ledger.LedgerBuyReversalResponse;
 import com.pointbank.securities.infrastructure.ledger.LedgerClient;
+import com.pointbank.securities.infrastructure.ledger.LedgerSellReversalRequest;
+import com.pointbank.securities.infrastructure.ledger.LedgerSellReversalResponse;
 import com.pointbank.securities.message.mapper.ProcessedMessageMapper;
 import com.pointbank.securities.order.domain.OrderSide;
 import com.pointbank.securities.order.domain.OrderStatus;
@@ -53,6 +57,113 @@ public class SecuritiesOrderResultDlqHandler {
             transactionTemplate().executeWithoutResult(status -> finishCompensation(event, response));
         } catch (Exception exception) {
             transactionTemplate().executeWithoutResult(status -> markCompensationFailure(event, exception));
+        }
+    }
+
+    public void handle(SellFundsFailedEvent event) {
+        transactionTemplate().executeWithoutResult(status -> cancelFailedSellResult(event));
+    }
+
+    public void handle(SellFundsCreditedEvent event) {
+        CompensationDecision decision = transactionTemplate().execute(status -> prepareSellCompensation(event));
+        if (decision != CompensationDecision.COMPENSATE) return;
+        try {
+            LedgerSellReversalResponse response = ledgerClient.reverseSellFunds(new LedgerSellReversalRequest(
+                    event.memberId(), event.orderNo(), event.stockCode(), event.totalAmount(),
+                    event.ledgerRequestNo(), REVERSAL_REASON_CODE,
+                    "SELL_FUNDS_CREDITED could not be applied by Securities and moved to the result DLQ."));
+            validateSellReversalResponse(event, response);
+            transactionTemplate().executeWithoutResult(status -> finishSellCompensation(event, response));
+        } catch (Exception exception) {
+            transactionTemplate().executeWithoutResult(status -> markSellCompensationFailure(event, exception));
+        }
+    }
+
+    private void cancelFailedSellResult(SellFundsFailedEvent event) {
+        String id = dlqEventId(event.eventId());
+        if (processedMessageMapper.existsByEventId(id)) return;
+        SecuritiesOrder order = orderStateService.findOrderForResultProcessing(event.orderNo());
+        String reason = "DLQ_CANCELED: " + failureReason(event.reasonCode(), event.reasonMessage());
+        if (!matches(order, event)) {
+            markManualReviewIfNeeded(order, "ORDER_RESULT_CONFLICT: SELL_FUNDS_FAILED DLQ payload mismatch.");
+        } else {
+            switch (order.getStatus()) {
+                case REQUESTED -> orderStateService.cancelSellOrderFromDlq(order, reason);
+                case FAILED -> orderStateService.cancelOrderFromDlq(order, reason);
+                case FUNDS_COMPLETED, COMPLETED -> markManualReviewIfNeeded(order, reason);
+                case MANUAL_REVIEW, CANCELED, REVERSED -> { }
+            }
+        }
+        recordProcessed(id, event.eventType());
+    }
+
+    private CompensationDecision prepareSellCompensation(SellFundsCreditedEvent event) {
+        String id = dlqEventId(event.eventId());
+        if (processedMessageMapper.existsByEventId(id)) return CompensationDecision.DONE;
+        SecuritiesOrder order = orderStateService.findOrderForResultProcessing(event.orderNo());
+        if (!matches(order, event)) {
+            markManualReviewIfNeeded(order, "ORDER_RESULT_CONFLICT: SELL_FUNDS_CREDITED DLQ payload mismatch.");
+            recordProcessed(id, event.eventType());
+            return CompensationDecision.DONE;
+        }
+        return switch (order.getStatus()) {
+            case REQUESTED, FUNDS_COMPLETED -> CompensationDecision.COMPENSATE;
+            case COMPLETED, REVERSED -> {
+                recordProcessed(id, event.eventType());
+                yield CompensationDecision.DONE;
+            }
+            case FAILED, CANCELED -> {
+                markManualReviewIfNeeded(order, "ORDER_RESULT_CONFLICT: credited sell result reached DLQ after termination.");
+                recordProcessed(id, event.eventType());
+                yield CompensationDecision.DONE;
+            }
+            case MANUAL_REVIEW -> {
+                recordProcessed(id, event.eventType());
+                yield CompensationDecision.DONE;
+            }
+        };
+    }
+
+    private void finishSellCompensation(SellFundsCreditedEvent event, LedgerSellReversalResponse response) {
+        String id = dlqEventId(event.eventId());
+        if (processedMessageMapper.existsByEventId(id)) return;
+        SecuritiesOrder order = orderStateService.findOrderForResultProcessing(event.orderNo());
+        String reason = "DLQ_REVERSED: reversalRequestNo=" + response.reversalRequestNo()
+                + "; originalLedgerRequestNo=" + response.originalLedgerRequestNo();
+        switch (order.getStatus()) {
+            case REQUESTED, FUNDS_COMPLETED -> orderStateService.reverseSellOrderAfterCompensation(order, reason);
+            case REVERSED -> { }
+            case COMPLETED, FAILED, CANCELED -> markManualReviewIfNeeded(
+                    order, "COMPENSATION_STATE_CONFLICT: " + reason);
+            case MANUAL_REVIEW -> { }
+        }
+        recordProcessed(id, event.eventType());
+    }
+
+    private void markSellCompensationFailure(SellFundsCreditedEvent event, Exception exception) {
+        String id = dlqEventId(event.eventId());
+        if (processedMessageMapper.existsByEventId(id)) return;
+        SecuritiesOrder order = orderStateService.findOrderForResultProcessing(event.orderNo());
+        if (order.getStatus() != OrderStatus.COMPLETED
+                && order.getStatus() != OrderStatus.REVERSED
+                && order.getStatus() != OrderStatus.MANUAL_REVIEW) {
+            String error = exception instanceof CustomException custom
+                    ? custom.getErrorCode().getCode() : exception.getClass().getSimpleName();
+            orderStateService.markManualReviewAfterCompensationFailure(
+                    order, "SELL_COMPENSATION_FAILED: " + error
+                            + "; originalLedgerRequestNo=" + event.ledgerRequestNo());
+        }
+        recordProcessed(id, event.eventType());
+    }
+
+    private void validateSellReversalResponse(
+            SellFundsCreditedEvent event, LedgerSellReversalResponse response) {
+        if (response == null || !"COMPLETED".equals(response.status())
+                || !Objects.equals(response.memberId(), event.memberId())
+                || !Objects.equals(response.stockCode(), event.stockCode())
+                || !Objects.equals(response.originalLedgerRequestNo(), event.ledgerRequestNo())
+                || response.reversalAmount() != event.totalAmount()) {
+            throw new IllegalStateException("Ledger returned an invalid sell reversal response.");
         }
     }
 
@@ -173,6 +284,25 @@ public class SecuritiesOrderResultDlqHandler {
 
     private boolean matches(SecuritiesOrder order, BuyFundsFailedEvent event) {
         return order.getOrderSide() == OrderSide.BUY
+                && Objects.equals(order.getMemberId(), event.memberId())
+                && Objects.equals(order.getSecuritiesAccountId(), event.securitiesAccountId())
+                && Objects.equals(order.getStockCode(), event.stockCode());
+    }
+
+    private boolean matches(SecuritiesOrder order, SellFundsCreditedEvent event) {
+        return order.getOrderSide() == OrderSide.SELL
+                && Objects.equals(order.getMemberId(), event.memberId())
+                && Objects.equals(order.getSecuritiesAccountId(), event.securitiesAccountId())
+                && Objects.equals(order.getStockCode(), event.stockCode())
+                && order.getQuantity() == event.quantity()
+                && order.getOrderPrice() == event.orderPrice()
+                && order.getOrderAmount() == event.orderAmount()
+                && order.getFee() == event.fee() && order.getTax() == event.tax()
+                && order.getTotalAmount() == event.totalAmount();
+    }
+
+    private boolean matches(SecuritiesOrder order, SellFundsFailedEvent event) {
+        return order.getOrderSide() == OrderSide.SELL
                 && Objects.equals(order.getMemberId(), event.memberId())
                 && Objects.equals(order.getSecuritiesAccountId(), event.securitiesAccountId())
                 && Objects.equals(order.getStockCode(), event.stockCode());

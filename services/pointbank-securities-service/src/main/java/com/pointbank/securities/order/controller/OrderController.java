@@ -5,8 +5,11 @@ import com.pointbank.securities.global.response.ApiResponse;
 import com.pointbank.securities.order.dto.BuyOrderRequest;
 import com.pointbank.securities.order.dto.BuyOrderResponse;
 import com.pointbank.securities.order.dto.OrderDetailResponse;
+import com.pointbank.securities.order.dto.SellOrderRequest;
+import com.pointbank.securities.order.dto.SellOrderResponse;
 import com.pointbank.securities.order.service.BuyOrderAcceptanceService;
 import com.pointbank.securities.order.service.OrderQueryService;
+import com.pointbank.securities.order.service.SellOrderAcceptanceService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -25,6 +28,7 @@ public class OrderController {
     private static final String IDEMPOTENCY_KEY_HEADER = "Idempotency-Key";
 
     private final BuyOrderAcceptanceService buyOrderAcceptanceService;
+    private final SellOrderAcceptanceService sellOrderAcceptanceService;
     private final OrderQueryService orderQueryService;
     private final CurrentMemberHeaderResolver currentMemberHeaderResolver;
 
@@ -38,6 +42,18 @@ public class OrderController {
         return ApiResponse.success(
                 "Buy order accepted.",
                 buyOrderAcceptanceService.accept(memberId, idempotencyKey, request));
+    }
+
+    @PostMapping("/sell")
+    public ApiResponse<SellOrderResponse> sell(
+            @RequestHeader(value = MEMBER_ID_HEADER, required = false) String memberIdHeader,
+            @RequestHeader(value = IDEMPOTENCY_KEY_HEADER, required = false) String idempotencyKey,
+            @Valid @RequestBody SellOrderRequest request
+    ) {
+        Long memberId = currentMemberHeaderResolver.resolveMemberId(memberIdHeader);
+        return ApiResponse.success(
+                "Sell order accepted.",
+                sellOrderAcceptanceService.accept(memberId, idempotencyKey, request));
     }
 
     @GetMapping("/{orderNo}")

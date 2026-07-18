@@ -105,6 +105,29 @@ public class LedgerClient {
         }
     }
 
+    public LedgerSellReversalResponse reverseSellFunds(LedgerSellReversalRequest request) {
+        try {
+            LedgerApiResponse<LedgerSellReversalResponse> response = ledgerRestClient.post()
+                    .uri("/internal/ledger/securities/trades/sell/reversal")
+                    .body(request)
+                    .retrieve()
+                    .onStatus(HttpStatusCode::isError, (httpRequest, clientResponse) -> {
+                        ErrorResponse error = readError(clientResponse);
+                        throw toCustomException(error);
+                    })
+                    .body(new ParameterizedTypeReference<LedgerApiResponse<LedgerSellReversalResponse>>() {
+                    });
+            if (response == null || response.data() == null) {
+                throw new CustomException(ErrorCode.LEDGER_SERVICE_UNAVAILABLE);
+            }
+            return response.data();
+        } catch (CustomException exception) {
+            throw exception;
+        } catch (RestClientException exception) {
+            throw new CustomException(ErrorCode.LEDGER_SERVICE_UNAVAILABLE);
+        }
+    }
+
     private LedgerTradeFundsResponse executeTradeFundsRequest(String uri, String orderNo, Object requestBody) {
         try {
             LedgerApiResponse<LedgerTradeFundsResponse> response = ledgerRestClient.post()

@@ -5,6 +5,8 @@ import com.pointbank.ledger.event.BuyFundsDebitedEvent;
 import com.pointbank.ledger.event.BuyFundsFailedEvent;
 import com.pointbank.ledger.event.CashAccountCreatedEvent;
 import com.pointbank.ledger.event.LedgerEventType;
+import com.pointbank.ledger.event.SellFundsCreditedEvent;
+import com.pointbank.ledger.event.SellFundsFailedEvent;
 import com.pointbank.ledger.outbox.domain.OutboxEvent;
 import com.pointbank.ledger.outbox.mapper.OutboxEventMapper;
 import com.pointbank.ledger.sqs.SqsProperties;
@@ -33,6 +35,8 @@ public class LedgerOutboxPublisher {
         publishPendingEvents(LedgerEventType.CASH_ACCOUNT_CREATED);
         publishPendingEvents(LedgerEventType.BUY_FUNDS_DEBITED);
         publishPendingEvents(LedgerEventType.BUY_FUNDS_FAILED);
+        publishPendingEvents(LedgerEventType.SELL_FUNDS_CREDITED);
+        publishPendingEvents(LedgerEventType.SELL_FUNDS_FAILED);
     }
 
     private void publishPendingEvents(String eventType) {
@@ -83,6 +87,18 @@ public class LedgerOutboxPublisher {
                     sqsProperties.securitiesOrderResultQueueUrl(),
                     String.valueOf(event.memberId())
             );
+        }
+        if (LedgerEventType.SELL_FUNDS_CREDITED.equals(outboxEvent.getEventType())) {
+            SellFundsCreditedEvent event =
+                    objectMapper.readValue(outboxEvent.getPayload(), SellFundsCreditedEvent.class);
+            return new PublishDestination(
+                    sqsProperties.securitiesOrderResultQueueUrl(), String.valueOf(event.memberId()));
+        }
+        if (LedgerEventType.SELL_FUNDS_FAILED.equals(outboxEvent.getEventType())) {
+            SellFundsFailedEvent event =
+                    objectMapper.readValue(outboxEvent.getPayload(), SellFundsFailedEvent.class);
+            return new PublishDestination(
+                    sqsProperties.securitiesOrderResultQueueUrl(), String.valueOf(event.memberId()));
         }
         throw new IllegalArgumentException("Unsupported ledger outbox event type: " + outboxEvent.getEventType());
     }

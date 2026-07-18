@@ -9,6 +9,8 @@ import com.pointbank.ledger.api.dto.BuyOrderReversalResponse;
 import com.pointbank.ledger.api.dto.SecuritiesBuyDebitRequest;
 import com.pointbank.ledger.api.dto.SecuritiesSellCreditRequest;
 import com.pointbank.ledger.api.dto.SecuritiesTradeFundsResponse;
+import com.pointbank.ledger.api.dto.SellOrderReversalRequest;
+import com.pointbank.ledger.api.dto.SellOrderReversalResponse;
 import com.pointbank.ledger.entry.domain.LedgerEntry;
 import com.pointbank.ledger.entry.domain.LedgerEntryDirection;
 import com.pointbank.ledger.entry.domain.LedgerEntryType;
@@ -34,6 +36,7 @@ public class SecuritiesTradeLedgerService {
     private static final String BUY_REQUEST_PREFIX = "STOCKBUY-";
     private static final String BUY_REVERSAL_REQUEST_PREFIX = "STOCKREV-";
     private static final String SELL_REQUEST_PREFIX = "STOCKSELL-";
+    private static final String SELL_REVERSAL_REQUEST_PREFIX = "SELLREV-";
 
     private final LedgerAccountMapper accountMapper;
     private final LedgerTransferRequestMapper transferRequestMapper;
@@ -188,6 +191,107 @@ public class SecuritiesTradeLedgerService {
 
         return completedResponse(
                 reloadRequest(requestNo), request.memberId(), LedgerEntryType.STOCK_SELL, stockCode, false);
+    }
+
+    @Transactional
+    public SellOrderReversalResponse reverseSellFunds(SellOrderReversalRequest request) {
+        String orderNo = resolveOrderNo(null, request.orderNo());
+        String stockCode = normalizeStockCode(request.stockCode());
+        String originalRequestNo = SELL_REQUEST_PREFIX + orderNo;
+        if (!originalRequestNo.equals(request.originalLedgerRequestNo())) {
+            throw new CustomException(ErrorCode.SELL_REVERSAL_NOT_ALLOWED);
+        }
+
+        LedgerTransferRequest original = transferRequestMapper.findByRequestNo(originalRequestNo)
+                .orElseThrow(() -> new CustomException(ErrorCode.SELL_REVERSAL_NOT_ALLOWED));
+        validateOriginalSellForReversal(original, request, stockCode);
+        String reversalRequestNo = SELL_REVERSAL_REQUEST_PREFIX + orderNo;
+        LedgerTransferRequest existing = transferRequestMapper.findByRequestNo(reversalRequestNo).orElse(null);
+        if (existing != null) {
+            return completedSellReversalResponse(
+                    resolveExistingSellReversal(existing, original, request), originalRequestNo, stockCode);
+        }
+
+        LedgerAccount account = findSecuritiesCashAccount(request.memberId());
+        if (!Objects.equals(account.getId(), original.getTargetAccountId())) {
+            throw new CustomException(ErrorCode.SELL_REVERSAL_NOT_ALLOWED);
+        }
+        LedgerTransferRequest reversal = new LedgerTransferRequest(
+                reversalRequestNo, LedgerTransferType.SECURITIES_SELL_REVERSAL,
+                account.getId(), null, request.memberId(), null,
+                request.reversalAmount(), LedgerTransferStatus.REQUESTED);
+        try {
+            transferRequestMapper.insertRequested(reversal);
+        } catch (DuplicateKeyException exception) {
+            LedgerTransferRequest concurrent = transferRequestMapper.findByRequestNo(reversalRequestNo)
+                    .orElseThrow(() -> new CustomException(ErrorCode.INTERNAL_SERVER_ERROR));
+            return completedSellReversalResponse(
+                    resolveExistingSellReversal(concurrent, original, request), originalRequestNo, stockCode);
+        }
+
+        LedgerAccount locked = lockAccount(account.getId());
+        validateActive(locked);
+        long available = subtract(locked.getBalance(), locked.getReservedBalance());
+        if (available < request.reversalAmount()) {
+            throw new CustomException(ErrorCode.INSUFFICIENT_BALANCE);
+        }
+        long balanceAfter = subtract(locked.getBalance(), request.reversalAmount());
+        updateBalance(locked.getId(), balanceAfter);
+        insertEntry(reversal, locked, LedgerEntryType.STOCK_SELL_REVERSAL,
+                LedgerEntryDirection.DEBIT, request.reversalAmount(), balanceAfter,
+                sellReversalDescription(request, stockCode));
+        complete(reversal.getId(), balanceAfter, null);
+        return completedSellReversalResponse(
+                reloadRequest(reversalRequestNo), originalRequestNo, stockCode);
+    }
+
+    private void validateOriginalSellForReversal(
+            LedgerTransferRequest original, SellOrderReversalRequest request, String stockCode) {
+        boolean matches = original.getTransferType() == LedgerTransferType.SECURITIES_SELL
+                && original.getStatus() == LedgerTransferStatus.COMPLETED
+                && Objects.equals(original.getToMemberId(), request.memberId())
+                && original.getAmount() == request.reversalAmount()
+                && original.getTargetAccountId() != null;
+        if (!matches) throw new CustomException(ErrorCode.SELL_REVERSAL_NOT_ALLOWED);
+        LedgerEntry entry = entryMapper.findByTransferRequestIdAndEntryType(
+                        original.getId(), LedgerEntryType.STOCK_SELL.name())
+                .orElseThrow(() -> new CustomException(ErrorCode.SELL_REVERSAL_NOT_ALLOWED));
+        if (entry.getDescription() == null
+                || !entry.getDescription().startsWith("stockCode=" + stockCode + ";")) {
+            throw new CustomException(ErrorCode.SELL_REVERSAL_NOT_ALLOWED);
+        }
+    }
+
+    private LedgerTransferRequest resolveExistingSellReversal(
+            LedgerTransferRequest existing, LedgerTransferRequest original, SellOrderReversalRequest request) {
+        boolean matches = existing.getTransferType() == LedgerTransferType.SECURITIES_SELL_REVERSAL
+                && existing.getStatus() == LedgerTransferStatus.COMPLETED
+                && Objects.equals(existing.getFromMemberId(), request.memberId())
+                && existing.getAmount() == request.reversalAmount()
+                && Objects.equals(existing.getSourceAccountId(), original.getTargetAccountId())
+                && existing.getTargetAccountId() == null;
+        if (!matches) throw new CustomException(ErrorCode.IDEMPOTENCY_KEY_CONFLICT);
+        entryMapper.findByTransferRequestIdAndEntryType(
+                        existing.getId(), LedgerEntryType.STOCK_SELL_REVERSAL.name())
+                .orElseThrow(() -> new CustomException(ErrorCode.INTERNAL_SERVER_ERROR));
+        return existing;
+    }
+
+    private SellOrderReversalResponse completedSellReversalResponse(
+            LedgerTransferRequest reversal, String originalRequestNo, String stockCode) {
+        if (reversal.getSourceBalanceAfter() == null) {
+            throw new CustomException(ErrorCode.INTERNAL_SERVER_ERROR);
+        }
+        return new SellOrderReversalResponse(
+                reversal.getRequestNo(), originalRequestNo, reversal.getFromMemberId(), stockCode,
+                reversal.getAmount(), reversal.getSourceBalanceAfter(), reversal.getStatus().name());
+    }
+
+    private String sellReversalDescription(SellOrderReversalRequest request, String stockCode) {
+        String description = "originalRequestNo=" + request.originalLedgerRequestNo()
+                + ";stockCode=" + stockCode + ";reasonCode=" + request.reasonCode()
+                + ";reasonMessage=" + request.reasonMessage();
+        return description.length() <= 255 ? description : description.substring(0, 255);
     }
 
     private LedgerTransferRequest insertOrResolve(

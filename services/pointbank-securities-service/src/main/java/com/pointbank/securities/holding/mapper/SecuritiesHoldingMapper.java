@@ -45,4 +45,20 @@ public interface SecuritiesHoldingMapper {
             @Param("avgBuyPrice") BigDecimal avgBuyPrice,
             @Param("totalBuyAmount") long totalBuyAmount
     );
+    int reserveSellQuantity(
+            @Param("id") Long id,
+            @Param("quantity") long quantity
+    );
+    int releaseSellReservation(
+            @Param("id") Long id,
+            @Param("quantity") long quantity
+    );
+    int completeReservedSell(
+            @Param("id") Long id,
+            @Param("quantity") long quantity,
+            @Param("quantityAfter") long quantityAfter,
+            @Param("reservedQuantityAfter") long reservedQuantityAfter,
+            @Param("avgBuyPriceAfter") BigDecimal avgBuyPriceAfter,
+            @Param("totalBuyAmountAfter") long totalBuyAmountAfter
+    );
 }

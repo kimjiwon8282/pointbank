@@ -5,6 +5,8 @@ import com.pointbank.ledger.api.dto.BuyOrderReversalResponse;
 import com.pointbank.ledger.api.dto.SecuritiesBuyDebitRequest;
 import com.pointbank.ledger.api.dto.SecuritiesSellCreditRequest;
 import com.pointbank.ledger.api.dto.SecuritiesTradeFundsResponse;
+import com.pointbank.ledger.api.dto.SellOrderReversalRequest;
+import com.pointbank.ledger.api.dto.SellOrderReversalResponse;
 import com.pointbank.ledger.api.service.SecuritiesTradeLedgerService;
 import com.pointbank.ledger.global.response.ApiResponse;
 import jakarta.validation.Valid;
@@ -50,5 +52,14 @@ public class SecuritiesTradeLedgerController {
         return ApiResponse.success(
                 "Securities sell funds credited.",
                 securitiesTradeLedgerService.creditSellFunds(idempotencyKey, request));
+    }
+
+    @PostMapping("/sell/reversal")
+    public ApiResponse<SellOrderReversalResponse> reverseSellFunds(
+            @Valid @RequestBody SellOrderReversalRequest request
+    ) {
+        return ApiResponse.success(
+                "Securities sell funds reversed.",
+                securitiesTradeLedgerService.reverseSellFunds(request));
     }
 }

@@ -5,6 +5,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.pointbank.securities.event.BuyFundsDebitedEvent;
 import com.pointbank.securities.event.BuyFundsFailedEvent;
 import com.pointbank.securities.event.SecuritiesEventType;
+import com.pointbank.securities.event.SellFundsCreditedEvent;
+import com.pointbank.securities.event.SellFundsFailedEvent;
 import com.pointbank.securities.sqs.SqsProperties;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
@@ -45,6 +47,10 @@ public class SecuritiesOrderResultDlqConsumer {
                 dlqHandler.handle(objectMapper.treeToValue(body, BuyFundsDebitedEvent.class));
             } else if (SecuritiesEventType.BUY_FUNDS_FAILED.equals(eventType)) {
                 dlqHandler.handle(objectMapper.treeToValue(body, BuyFundsFailedEvent.class));
+            } else if (SecuritiesEventType.SELL_FUNDS_CREDITED.equals(eventType)) {
+                dlqHandler.handle(objectMapper.treeToValue(body, SellFundsCreditedEvent.class));
+            } else if (SecuritiesEventType.SELL_FUNDS_FAILED.equals(eventType)) {
+                dlqHandler.handle(objectMapper.treeToValue(body, SellFundsFailedEvent.class));
             } else {
                 throw new IllegalArgumentException("Unsupported order result DLQ event type: " + eventType);
             }
