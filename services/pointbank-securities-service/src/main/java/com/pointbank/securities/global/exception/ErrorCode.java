@@ -21,6 +21,11 @@ public enum ErrorCode {
             "SECURITIES_ACCOUNT_NOT_ACTIVE",
             "Securities account is not active."
     ),
+    INVALID_SECURITIES_ACCOUNT_PASSWORD(
+            HttpStatus.BAD_REQUEST,
+            "INVALID_SECURITIES_ACCOUNT_PASSWORD",
+            "Securities account password is invalid."
+    ),
     PRODUCT_NOT_FOUND(HttpStatus.NOT_FOUND, "PRODUCT_NOT_FOUND", "Product was not found."),
     PRODUCT_NOT_ACTIVE(HttpStatus.CONFLICT, "PRODUCT_NOT_ACTIVE", "Product is not active."),
     QUOTE_NOT_FOUND(HttpStatus.NOT_FOUND, "QUOTE_NOT_FOUND", "Quote was not found."),

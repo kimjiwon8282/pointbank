@@ -20,6 +20,7 @@ import com.pointbank.securities.product.domain.SecuritiesProduct;
 import com.pointbank.securities.product.mapper.SecuritiesProductMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DuplicateKeyException;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -34,10 +35,13 @@ public class BuyOrderAcceptanceService {
     private final TradingFeePolicy tradingFeePolicy;
     private final OrderNoGenerator orderNoGenerator;
     private final OrderStateService orderStateService;
+    private final PasswordEncoder securitiesAccountPasswordEncoder;
 
     public BuyOrderResponse accept(Long memberId, String idempotencyKeyValue, BuyOrderRequest request) {
         String idempotencyKey = normalizeIdempotencyKey(idempotencyKeyValue);
         String stockCode = normalizeStockCode(request.stockCode());
+        SecuritiesAccount account = findActiveAccount(memberId);
+        validateAccountPassword(account, request.accountPassword());
 
         SecuritiesOrder existing = orderMapper.findByMemberIdAndIdempotencyKey(memberId, idempotencyKey)
                 .orElse(null);
@@ -45,7 +49,6 @@ public class BuyOrderAcceptanceService {
             return resolveExistingOrder(existing, stockCode, request.quantity());
         }
 
-        SecuritiesAccount account = findActiveAccount(memberId);
         SecuritiesProduct product = findActiveProduct(stockCode);
         QuoteLatestResponse quote = quoteClient.getLatestQuote(stockCode);
         validateQuote(stockCode, quote);
@@ -106,6 +109,15 @@ public class BuyOrderAcceptanceService {
             throw new CustomException(ErrorCode.SECURITIES_ACCOUNT_NOT_ACTIVE);
         }
         return account;
+    }
+
+    private void validateAccountPassword(SecuritiesAccount account, String accountPassword) {
+        if (!securitiesAccountPasswordEncoder.matches(
+                accountPassword,
+                account.getAccountPasswordHash()
+        )) {
+            throw new CustomException(ErrorCode.INVALID_SECURITIES_ACCOUNT_PASSWORD);
+        }
     }
 
     private SecuritiesProduct findActiveProduct(String stockCode) {
