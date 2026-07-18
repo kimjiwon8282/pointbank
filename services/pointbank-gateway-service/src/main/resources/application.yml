@@ -44,6 +44,7 @@ spring:
                 allowed-headers:
                   - Authorization
                   - Content-Type
+                  - Idempotency-Key
                 allow-credentials: false
             add-to-simple-url-handler-mapping: true
 
