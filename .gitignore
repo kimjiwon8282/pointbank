@@ -19,6 +19,9 @@ application-local.yml
 application-local.yaml
 application-local.properties
 
+# Claude Code local instructions (직접 커밋 금지 — 대체 문서는 docs/project-guide.md)
+CLAUDE.md
+
 # Logs and JVM crash dumps
 *.log
 hs_err_pid*
