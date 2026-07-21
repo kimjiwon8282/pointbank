@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: banking
+  labels: { app: banking }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: banking }
+  template:
+    metadata:
+      labels: { app: banking }
+    spec:
+      # banking은 자체 DB 없음(원장은 ledger로 위임). ledger 호출은 지연 바인딩이라 initContainer 불필요.
+      containers:
+        - name: banking
+          image: infra-pointbank-banking-service:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8082
+          env:
+            - name: LEDGER_SERVICE_BASE_URL
+              value: http://ledger:8084
+          readinessProbe:
+            httpGet: { path: /actuator/health, port: 8082 }
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            failureThreshold: 30
+          livenessProbe:
+            httpGet: { path: /actuator/health, port: 8082 }
+            initialDelaySeconds: 40
+            periodSeconds: 15
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: banking
+  labels: { app: banking }
+spec:
+  selector: { app: banking }
+  ports:
+    - port: 8082
+      targetPort: 8082

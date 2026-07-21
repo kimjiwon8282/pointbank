@@ -1,0 +1,61 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mysql
+  labels: { app: mysql }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: mysql }
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels: { app: mysql }
+    spec:
+      containers:
+        - name: mysql
+          image: mysql:8.4
+          args:
+            - --character-set-server=utf8mb4
+            - --collation-server=utf8mb4_unicode_ci
+          ports:
+            - containerPort: 3306
+          env:
+            - name: TZ
+              value: Asia/Seoul
+            - name: MYSQL_ROOT_PASSWORD
+              valueFrom: { secretKeyRef: { name: pointbank-secret, key: MYSQL_ROOT_PASSWORD } }
+            - name: MYSQL_USER
+              valueFrom: { secretKeyRef: { name: pointbank-secret, key: MYSQL_USER } }
+            - name: MYSQL_PASSWORD
+              valueFrom: { secretKeyRef: { name: pointbank-secret, key: MYSQL_PASSWORD } }
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/mysql
+            - name: init
+              mountPath: /docker-entrypoint-initdb.d
+              readOnly: true
+          readinessProbe:
+            exec:
+              command: ["sh", "-c", "mysqladmin ping -h 127.0.0.1 -uroot -p\"$MYSQL_ROOT_PASSWORD\""]
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            failureThreshold: 30
+      volumes:
+        - name: data
+          emptyDir: {}   # 로컬 검증용 — 파드 재생성 시 초기화됨(스키마는 init에서 재생성)
+        - name: init
+          configMap:
+            name: mysql-init
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql
+  labels: { app: mysql }
+spec:
+  selector: { app: mysql }
+  ports:
+    - port: 3306
+      targetPort: 3306

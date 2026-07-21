@@ -1,0 +1,44 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: pointbank
+
+# base(앱 5종) + 로컬 인프라(MySQL/LocalStack)
+resources:
+  - ../../base
+  - mysql.yaml
+  - localstack.yaml
+
+# 게이트웨이 Service를 NodePort로 승격
+patches:
+  - path: gateway-nodeport.yaml
+    target:
+      kind: Service
+      name: gateway
+
+# 이름 접미사 해시 비활성화 → 매니페스트가 참조하는 고정 이름 유지
+generatorOptions:
+  disableNameSuffixHash: true
+
+secretGenerator:
+  - name: pointbank-secret
+    literals:
+      - MYSQL_ROOT_PASSWORD=root   # MySQL readiness의 mysqladmin ping과 일치해야 함
+      - MYSQL_USER=pointbank
+      - MYSQL_PASSWORD=pointbank
+      - DB_USERNAME=pointbank
+      - DB_PASSWORD=pointbank
+
+configMapGenerator:
+  # MySQL 스키마 초기화 SQL (production DDL과 동일 파일 재사용)
+  - name: mysql-init
+    files:
+      - ../../../infra/mysql/init/01-create-databases.sql
+      - ../../../infra/mysql/init/02-auth-schema.sql
+      - ../../../infra/mysql/init/03-banking-schema.sql
+      - ../../../infra/mysql/init/04-securities-schema.sql
+      - ../../../infra/mysql/init/05-ledger-schema.sql
+  # LocalStack SQS 큐 생성 스크립트
+  - name: localstack-init
+    files:
+      - ../../../infra/localstack/init/01-create-sqs-queues.sh
