@@ -36,6 +36,10 @@ spec:
         - name: init
           configMap:
             name: localstack-init
+            # ready.d 스크립트는 실행 가능해야 함. configMap 기본 0644 → LocalStack이
+            # 'Permission denied'로 실행 실패해 SQS 큐가 생성되지 않는다(compose 바인드마운트와 달리
+            # exec 비트가 유실됨). 0755로 마운트해 실행권한 부여.
+            defaultMode: 0755
 ---
 apiVersion: v1
 kind: Service
