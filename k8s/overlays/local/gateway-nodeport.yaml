@@ -1,0 +1,11 @@
+# 게이트웨이를 NodePort로 노출 → kind extraPortMappings(30080)로 호스트에서 접근.
+apiVersion: v1
+kind: Service
+metadata:
+  name: gateway
+spec:
+  type: NodePort
+  ports:
+    - port: 8080
+      targetPort: 8080
+      nodePort: 30080

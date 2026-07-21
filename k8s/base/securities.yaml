@@ -1,0 +1,68 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: securities
+  labels: { app: securities }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: securities }
+  template:
+    metadata:
+      labels: { app: securities }
+    spec:
+      initContainers:
+        - name: wait-for-mysql
+          image: busybox:1.36
+          command: ["sh", "-c", "until nc -z mysql 3306; do echo waiting-mysql; sleep 2; done"]
+      containers:
+        - name: securities
+          image: infra-pointbank-securities-service:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8083
+          env:
+            - name: SECURITIES_DB_URL
+              value: jdbc:mysql://mysql:3306/securities_db?serverTimezone=Asia/Seoul&characterEncoding=UTF-8
+            - name: DB_USERNAME
+              valueFrom: { secretKeyRef: { name: pointbank-secret, key: DB_USERNAME } }
+            - name: DB_PASSWORD
+              valueFrom: { secretKeyRef: { name: pointbank-secret, key: DB_PASSWORD } }
+            - name: LEDGER_SERVICE_BASE_URL
+              value: http://ledger:8084
+            - name: SQS_ENDPOINT
+              value: http://localstack:4566
+            - name: AWS_REGION
+              value: ap-northeast-2
+            - name: AWS_ACCESS_KEY_ID
+              value: test
+            - name: AWS_SECRET_ACCESS_KEY
+              value: test
+            - name: LEDGER_COMMAND_QUEUE_URL
+              value: http://localstack:4566/000000000000/ledger-command-queue.fifo
+            - name: LEDGER_COMMAND_DLQ_URL
+              value: http://localstack:4566/000000000000/ledger-command-dlq.fifo
+            - name: SECURITIES_RESULT_QUEUE_URL
+              value: http://localstack:4566/000000000000/securities-result-queue.fifo
+            - name: SECURITIES_RESULT_DLQ_URL
+              value: http://localstack:4566/000000000000/securities-result-dlq.fifo
+          readinessProbe:
+            httpGet: { path: /actuator/health, port: 8083 }
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            failureThreshold: 30
+          livenessProbe:
+            httpGet: { path: /actuator/health, port: 8083 }
+            initialDelaySeconds: 40
+            periodSeconds: 15
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: securities
+  labels: { app: securities }
+spec:
+  selector: { app: securities }
+  ports:
+    - port: 8083
+      targetPort: 8083
