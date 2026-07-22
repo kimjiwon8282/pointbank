@@ -19,3 +19,15 @@ pointbank:
   quote:
     ttl-seconds: ${QUOTE_TTL_SECONDS:10}
     max-stale-seconds: ${QUOTE_MAX_STALE_SECONDS:10}
+    kis:
+      enabled: ${KIS_ENABLED:false}
+      environment: ${KIS_ENVIRONMENT:prod}
+      app-key: ${KIS_APP_KEY:}
+      app-secret: ${KIS_APP_SECRET:}
+      rest-base-url: ${KIS_REST_BASE_URL:https://openapi.koreainvestment.com:9443}
+      websocket-url: ${KIS_WEBSOCKET_URL:ws://ops.koreainvestment.com:21000/tryitout}
+      approval-path: /oauth2/Approval
+      realtime-execution-tr-id: H0STCNT0
+      stock-codes: ${KIS_STOCK_CODES:005930}
+      reconnect-initial-delay-seconds: ${KIS_RECONNECT_INITIAL_DELAY_SECONDS:1}
+      reconnect-max-delay-seconds: ${KIS_RECONNECT_MAX_DELAY_SECONDS:30}
